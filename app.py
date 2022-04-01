@@ -1,8 +1,10 @@
 import uvicorn, env
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from controllers import cronjobs, subscribe
 
 app = FastAPI()
+app.include_router(subscribe.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

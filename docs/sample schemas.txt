@@ -1,0 +1,24 @@
+users: {
+	"phone": "4127372596",
+	"park_id": 59,
+	"alert_ids": [
+		"some-uuid-32"
+	]
+}
+
+alerts: {
+	"id": "some-uuid-32",
+	"phone": "4127372596",
+	"park_id": 59,
+	"ride_id": 5882,
+	"wait_time": 30,
+	"start_time": "12:45:00",
+	"end_time": "18:00:00"
+}
+
+rides: {
+	"<park_id>": {
+	< dump entire contents from queue_times.json >
+	},
+...
+}
