@@ -32,17 +32,28 @@ resource "aws_s3_bucket_lifecycle_configuration" "purge_policy" {
 # create queue for async updates to dynamo tables
 resource "aws_sqs_queue" "wait_times_update_queue" {
     name = "qt-data-wait-times-update-queue-${var.env_name}"
-    policy = data.aws_iam_policy_document.sqs_policy.json
 }
 
-# configure s3 event upload policy on queue
-data "aws_iam_policy_document" "sqs_policy" {
+# create queue policy to allow s3 upload
+resource "aws_sqs_queue_policy" "wait_times_upload_policy" {
+    queue_url = aws_sqs_queue.wait_times_update_queue.id
+    policy = data.aws_iam_policy_document.wait_times_upload_policy.json
+}
+
+# configure s3 event upload policy to attach to queue
+data "aws_iam_policy_document" "wait_times_upload_policy" {
     statement {
+        principals {
+            type = "Service"
+            identifiers = [
+                "s3.amazonaws.com"
+            ]
+        }
         actions = [
             "sqs:SendMessage",
         ]
         resources = [
-            "arn:aws:sqs:::*"
+            aws_sqs_queue.wait_times_update_queue.arn,
         ]
     }
 }
@@ -53,7 +64,7 @@ resource "aws_s3_bucket_notification" "wait_times_upload_event" {
     queue {
         queue_arn     = aws_sqs_queue.wait_times_update_queue.arn
         events        = ["s3:ObjectCreated:*"]
+        id            = "wait-times-upload-event-${var.env_name}"
         filter_prefix = "wait-times/"
-        filter_suffix = ".json"
     }
 }
