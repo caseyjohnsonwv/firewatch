@@ -140,4 +140,4 @@ dmypy.json
 
 # other local files
 parks.json
-wait-times.json
+*wait-times*

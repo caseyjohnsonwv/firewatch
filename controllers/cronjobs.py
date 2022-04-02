@@ -1,21 +1,19 @@
 import json
 import os
+import re
+from threading import Thread
 import requests
-from utils.models import RideRecord, ParkRecord
-from utils.aws import S3
+from utils.aws import S3, SQS, DynamoDB
 
 
-# background task for pulling new parks data
+# cronjob task for pulling new parks data
 def fetch_parks_json():
     # get latest parks.json
     filepath = 'parks.json'
-    if not S3.object_exists(filepath):
-        response = requests.get(f"https://queue-times.com/en-US/{filepath}")
-        with open(filepath, 'w') as f:
-            json.dump(response.json(), f)
-        S3.put_object(filepath)
-    else:
-        filepath = S3.get_object(filepath)
+    response = requests.get(f"https://queue-times.com/en-US/{filepath}")
+    with open(filepath, 'w') as f:
+        json.dump(response.json(), f)
+    S3.put_object(filepath)
     # parse parks.json
     with open(filepath, 'r') as f:
         j = json.load(f)
@@ -23,26 +21,68 @@ def fetch_parks_json():
             parks = company['parks']
             for park in parks:
                 id, name = park['id'], park['name']
-                r = ParkRecord(park_id=id, park_name=name)
+                r = DynamoDB.ParkRecord(park_id=id, park_name=name)
                 r.write_to_dynamo()
     # delete local json file
     os.remove(filepath)
 
 
-# background task for pulling wait times data
+# cronjob task for pulling wait times data
 def fetch_wait_times_json():
-    # fetch wait times for all parks one at a time
-    # ---> building with concurrency upgrades in mind
-    # ---> dump jsons into s3 by park id
-    # s3 upload event creates notification on sqs
-    pass
+    all_parks = DynamoDB.list_parks()
+    for park in all_parks:
+        response = requests.get(f"https://queue-times.com/en-US/parks/{park.park_id}/queue_times.json")
+        filepath = f"{park.park_id}.json"
+        with open(filepath, 'w') as f:
+            json.dump(response.json(), f)
+        S3.put_object(filepath, key=f"wait-times/{filepath}")
+        os.remove(filepath)
 
 
-# background task for updating rides table
-def update_rides_table():
+# cronjob task for updating rides table
+def update_rides_table(max_threads:int=1):
+    # use multiple threads
+    threads = []
+    for thread_num in range(1, max_threads+1):
+        threads.append(
+            Thread(
+                target=_update_rides_table_thread_task,
+                kwargs={'thread_num':thread_num},
+            )
+        )
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+# actual worker, defined for threading
+def _update_rides_table_thread_task(thread_num:int):
     # poll sqs queue for new s3 uploads
-    # download json from s3
+    key, receipt_handle = SQS.poll_wait_times_queue()
+    while key is not None:
+        # download json from s3
+        filepath = f"wait-times-{thread_num}.json"
+        S3.get_object(key, filepath)
+        park_id = int(re.search('\d+', key).group(0))
+        # query for park name
+        park_db_entry = DynamoDB.get_item(DynamoDB.PARKS_TABLE, lookup={'park_id':park_id})
+        park_name = park_db_entry['park_name']
+        # parse json for riderecords
+        with open(filepath, 'r') as f:
+            j = json.load(f)
+            for land in j['lands']:
+                for ride in land['rides']:
+                    # put riderecords in rides table
+                    r = DynamoDB.RideRecord(ride['id'], park_id, ride['name'], park_name, ride['wait_time'], ride['is_open'])
+                    r.write_to_dynamo()
+        # delete local file and sqs message
+        os.remove(filepath)
+        SQS.delete_wait_times_message(receipt_handle)
+        # grab next message
+        key, receipt_handle = SQS.poll_wait_times_queue()
+    if receipt_handle is not None:
+        SQS.delete_wait_times_message(receipt_handle)
+
+
+# cronjob task for fulfilling / expiring alerts and notifying users ---> dynamo ttl will handle deletion
+def close_out_alerts():
     pass
-
-
-# background task for fulfilling / expiring alerts and notifying users ---> dynamo ttl will handle deletion

@@ -1,29 +1,23 @@
 # create dynamo table for rides data
 resource "aws_dynamodb_table" "rides_table" {
-    name         = "qt-rides-${var.env_name}"
-    billing_mode = "PAY_PER_REQUEST"
-    hash_key     = "ride_id"
+    name           = "qt-rides-${var.env_name}"
+    billing_mode   = "PROVISIONED"
+    write_capacity = 10
+    read_capacity  = 10
+    hash_key       = "ride_id"
 
     attribute {
         name = "ride_id"
         type = "N"
-    }
-    attribute {
-        name = "park_id"
-        type = "N"
-    }
-
-    global_secondary_index {
-        name            = "park_ride_ids"
-        hash_key        = "park_id"
-        projection_type = "KEYS_ONLY"
     }
 }
 
 # create dynamo table for park data
 resource "aws_dynamodb_table" "parks_table" {
     name         = "qt-parks-${var.env_name}"
-    billing_mode = "PAY_PER_REQUEST"
+    billing_mode   = "PROVISIONED"
+    write_capacity = 10
+    read_capacity  = 10
     hash_key     = "park_id"
 
     attribute {
@@ -35,7 +29,9 @@ resource "aws_dynamodb_table" "parks_table" {
 # create dynamo table for user alerts
 resource "aws_dynamodb_table" "alerts_table" {
     name         = "qt-alerts-${var.env_name}"
-    billing_mode = "PAY_PER_REQUEST"
+    billing_mode   = "PROVISIONED"
+    write_capacity = 10
+    read_capacity  = 10
     hash_key     = "phone_number"
 
     attribute {
@@ -43,22 +39,14 @@ resource "aws_dynamodb_table" "alerts_table" {
         type = "S"
     }
     attribute {
-        name = "park_id"
-        type = "N"
-    }
-    attribute {
         name = "ride_id"
         type = "N"
     }
 
     global_secondary_index {
-        name            = "active_parks"
-        hash_key        = "park_id"
-        projection_type = "KEYS_ONLY"
-    }
-
-    global_secondary_index {
         name            = "user_alerts"
+        write_capacity  = 10
+        read_capacity   = 10
         hash_key        = "ride_id"
         projection_type = "INCLUDE"
         non_key_attributes = [
