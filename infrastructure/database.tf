@@ -20,6 +20,18 @@ resource "aws_dynamodb_table" "rides_table" {
     }
 }
 
+# create dynamo table for park data
+resource "aws_dynamodb_table" "parks_table" {
+    name         = "qt-parks-${var.env_name}"
+    billing_mode = "PAY_PER_REQUEST"
+    hash_key     = "park_id"
+
+    attribute {
+        name = "park_id"
+        type = "N"
+    }
+}
+
 # create dynamo table for user alerts
 resource "aws_dynamodb_table" "alerts_table" {
     name         = "qt-alerts-${var.env_name}"

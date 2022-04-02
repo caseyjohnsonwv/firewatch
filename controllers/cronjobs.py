@@ -1,23 +1,35 @@
 import json
 import os
-from fastapi_utils.tasks import repeat_every
 import requests
-from utils import aws
+from utils.models import RideRecord, ParkRecord
+from utils.aws import S3
 
-# pull new parks data every week
-@repeat_every(seconds=604800)
-async def fetch_parks_json():
+
+# background task for pulling new parks data
+def fetch_parks_json():
+    # get latest parks.json
     filepath = 'parks.json'
-    if not aws.s3_object_exists(filepath):
+    if not S3.object_exists(filepath):
         response = requests.get(f"https://queue-times.com/en-US/{filepath}")
         with open(filepath, 'w') as f:
             json.dump(response.json(), f)
-        aws.s3_put_object(filepath)
-        os.remove(filepath)
+        S3.put_object(filepath)
+    else:
+        filepath = S3.get_object(filepath)
+    # parse parks.json
+    with open(filepath, 'r') as f:
+        j = json.load(f)
+        for company in j:
+            parks = company['parks']
+            for park in parks:
+                id, name = park['id'], park['name']
+                r = ParkRecord(park_id=id, park_name=name)
+                r.write_to_dynamo()
+    # delete local json file
+    os.remove(filepath)
 
 
-# cronjob for pulling new data every 5 minutes and dumping it to s3
-@repeat_every(seconds=300)
+# background task for pulling wait times data
 def fetch_wait_times_json():
     # fetch wait times for all parks one at a time
     # ---> building with concurrency upgrades in mind
@@ -26,11 +38,11 @@ def fetch_wait_times_json():
     pass
 
 
-# background job for updating rides table
-@repeat_every(seconds=30)
+# background task for updating rides table
 def update_rides_table():
     # poll sqs queue for new s3 uploads
     # download json from s3
     pass
 
-# background job for fulfilling / expiring alerts and notifying users ---> dynamo ttl will handle deletion
+
+# background task for fulfilling / expiring alerts and notifying users ---> dynamo ttl will handle deletion
