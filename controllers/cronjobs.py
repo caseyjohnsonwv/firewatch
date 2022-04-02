@@ -1,19 +1,18 @@
 import json
 import os
-from timeit import repeat
 from fastapi_utils.tasks import repeat_every
 import requests
-from utils.aws import s3_upload, s3_object_exists
+from utils import aws
 
 # pull new parks data every week
 @repeat_every(seconds=604800)
 async def fetch_parks_json():
     filepath = 'parks.json'
-    if not s3_object_exists(filepath):
+    if not aws.s3_object_exists(filepath):
         response = requests.get(f"https://queue-times.com/en-US/{filepath}")
         with open(filepath, 'w') as f:
             json.dump(response.json(), f)
-        s3_upload(filepath)
+        aws.s3_put_object(filepath)
         os.remove(filepath)
 
 
@@ -34,4 +33,4 @@ def update_rides_table():
     # download json from s3
     pass
 
-# background job for fulfilling / expiring alerts and notifying users
+# background job for fulfilling / expiring alerts and notifying users ---> dynamo ttl will handle deletion
