@@ -14,11 +14,11 @@ resource "aws_dynamodb_table" "rides_table" {
 
 # create dynamo table for park data
 resource "aws_dynamodb_table" "parks_table" {
-    name         = "qt-parks-${var.env_name}"
+    name           = "qt-parks-${var.env_name}"
     billing_mode   = "PROVISIONED"
     write_capacity = 10
     read_capacity  = 10
-    hash_key     = "park_id"
+    hash_key       = "park_id"
 
     attribute {
         name = "park_id"
@@ -28,36 +28,32 @@ resource "aws_dynamodb_table" "parks_table" {
 
 # create dynamo table for user alerts
 resource "aws_dynamodb_table" "alerts_table" {
-    name         = "qt-alerts-${var.env_name}"
+    name           = "qt-alerts-${var.env_name}"
     billing_mode   = "PROVISIONED"
     write_capacity = 10
     read_capacity  = 10
-    hash_key     = "phone_number"
+    hash_key       = "phone_number"
 
     attribute {
         name = "phone_number"
         type = "S"
     }
     attribute {
-        name = "ride_id"
+        name = "park_id"
         type = "N"
     }
 
     global_secondary_index {
-        name            = "user_alerts"
-        write_capacity  = 10
-        read_capacity   = 10
-        hash_key        = "ride_id"
-        projection_type = "INCLUDE"
+        name              = "alerts_by_park"
+        write_capacity    = 10
+        read_capacity     = 10
+        hash_key          = "park_id"
+        projection_type   = "INCLUDE"
         non_key_attributes = [
+            "ride_id",
             "start_time",
             "end_time",
             "wait_time",
         ]
-    }
-
-    ttl {
-        enabled        = true
-        attribute_name = "ttl"
     }
 }

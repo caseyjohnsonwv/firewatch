@@ -2,8 +2,11 @@ import json
 import os
 import re
 from threading import Thread
+import time
 import requests
 from utils.aws import S3, SQS, DynamoDB
+from utils.sms import send_alert_sms
+import env
 
 
 # cronjob task for pulling new parks data
@@ -40,10 +43,10 @@ def fetch_wait_times_json():
 
 
 # cronjob task for updating rides table
-def update_rides_table(max_threads:int=1):
+def update_rides_table():
     # use multiple threads
     threads = []
-    for thread_num in range(1, max_threads+1):
+    for thread_num in range(1, env.THREAD_COUNT+1):
         threads.append(
             Thread(
                 target=_update_rides_table_thread_task,
@@ -83,6 +86,40 @@ def _update_rides_table_thread_task(thread_num:int):
         SQS.delete_wait_times_message(receipt_handle)
 
 
-# cronjob task for fulfilling / expiring alerts and notifying users ---> dynamo ttl will handle deletion
+# cronjob task for fulfilling / expiring alerts and notifying users
 def close_out_alerts():
-    pass
+    # get all active park_id's from alerts table
+    parks = DynamoDB.list_parks()
+    # split threads by park
+    threads = []
+    for i in range(len(parks)):
+        park = parks[i]
+        threads.append(
+            Thread(
+                target=_close_out_alerts_thread_task,
+                kwargs={'p':park},
+            )
+        )
+        if len(threads) == env.THREAD_COUNT:
+            for th in threads:
+                th.start()
+            for th in threads:
+                th.join()
+            threads = []
+# actual worker, defined for threading
+def _close_out_alerts_thread_task(p:DynamoDB.ParkRecord):
+    # get all alerts for this park
+    alerts = DynamoDB.list_alerts_by_park(p.park_id)
+    if len(alerts) > 0:
+        # sort by ride to reduce db queries
+        alerts.sort(key = lambda a:a.ride_id)
+        r = DynamoDB.RideRecord(**DynamoDB.get_item(DynamoDB.RIDES_TABLE, lookup={'ride_id':alerts[0].ride_id}))
+        for a in alerts:
+            if r.ride_id != a.ride_id:
+                r = DynamoDB.RideRecord(**DynamoDB.get_item(DynamoDB.RIDES_TABLE, lookup={'ride_id':a.ride_id}))
+            # check ride wait time
+            expired = a.end_time <= time.time()
+            if r.wait_time <= a.wait_time or expired:
+                # send text message for fulfilled/expired and delete alert
+                send_alert_sms(a.phone_number, r.ride_name, a.wait_time if expired else r.wait_time, expired)
+                a.delete_from_dynamo()

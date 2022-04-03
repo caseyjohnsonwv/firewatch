@@ -1,8 +1,9 @@
 import json
 import os
+import datetime
 from typing import Tuple
 import boto3
-from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key, Attr
 from dynamodb_json import json_util as djson
 import env
 
@@ -81,6 +82,24 @@ class DynamoDB:
         items = response['Items'] 
         return [DynamoDB.ParkRecord(**djson.loads(item, as_dict=True)) for item in items]
 
+    def list_alerts_by_park(park_id:int) -> list:
+        dynamo = boto3.resource('dynamodb')
+        table = dynamo.Table(DynamoDB.ALERTS_TABLE)
+        response = table.query(
+            IndexName="alerts_by_park",
+            KeyConditionExpression=Key('park_id').eq(park_id),
+        )
+        items = response['Items'] 
+        return [DynamoDB.AlertRecord(**djson.loads(item, as_dict=True)) for item in items]
+
+    def delete_alert(phone_number:str, ride_id:int) -> None:
+        dynamo = boto3.resource('dynamodb')
+        table = dynamo.Table(DynamoDB.ALERTS_TABLE)
+        table.delete_item(
+            Key={'phone_number':phone_number},
+            ConditionExpression=Attr('ride_id').eq(ride_id)
+        )
+
 
     class ParkRecord:
         def __init__(self, park_id:int, park_name:str):
@@ -98,7 +117,7 @@ class DynamoDB:
 
 
     class RideRecord:
-        def __init__(self, ride_id:int, park_id:int, ride_name:str=None, park_name:str=None, wait_time:int=None, is_open:bool=None):
+        def __init__(self, ride_id:int, park_id:int, ride_name:str, park_name:str, wait_time:int, is_open:bool):
             self.ride_id = ride_id
             self.park_id = park_id
             self.ride_name = ride_name
@@ -115,3 +134,28 @@ class DynamoDB:
         
         def write_to_dynamo(self):
             DynamoDB.put_item(DynamoDB.RIDES_TABLE, self._to_dict())
+
+
+    class AlertRecord:
+        def __init__(self, phone_number:str, park_id:int, ride_id:int, wait_time:int, start_time:int, end_time:int):
+            self.phone_number = phone_number
+            self.park_id = park_id
+            self.ride_id = ride_id
+            self.wait_time = wait_time
+            self.start_time = int(start_time)
+            self.end_time = int(end_time)
+        
+        def __repr__(self):
+            end = datetime.datetime.fromtimestamp(self.end_time).strftime('%I:%M')
+            start = datetime.datetime.fromtimestamp(self.start_time).strftime('%I:%M')
+            return f"{self.phone_number} [{self.ride_id} @ {self.park_id}] {start} - {end} ({self.wait_time}m)"
+
+        def _to_dict(self):
+            # return all non-null class attributes
+            return {attr:self.__dict__[attr] for attr in vars(self) if self.__dict__[attr] is not None}
+        
+        def write_to_dynamo(self):
+            DynamoDB.put_item(DynamoDB.ALERTS_TABLE, self._to_dict())
+
+        def delete_from_dynamo(self):
+            DynamoDB.delete_alert(self.phone_number, self.ride_id)
