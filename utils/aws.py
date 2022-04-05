@@ -29,34 +29,54 @@ class S3:
 
 
 class SQS:
-    QUEUE = f"qt-data-wait-times-update-queue-{env.ENV_NAME}"
     client = boto3.client('sqs')
-    QUEUE_URL = client.get_queue_url(QueueName=QUEUE)['QueueUrl']
+    WAIT_TIMES_QUEUE_URL = client.get_queue_url(
+        QueueName=f"qt-data-wait-times-update-queue-{env.ENV_NAME}"
+    )['QueueUrl']
     del client
 
-    def poll_wait_times_queue() -> Tuple[str, str]:
+    def _poll_queue(queue_url:str) -> dict:
         # get s3 object key from upload event
         client = boto3.client('sqs')
         messages = client.receive_message(
-            QueueUrl = SQS.QUEUE_URL,
+            QueueUrl = queue_url,
             MaxNumberOfMessages = 1,
             WaitTimeSeconds = 20,
         )
-        key, receipt_handle = None, None
+        msg_json, receipt_handle = None, None
         if messages.get('Messages') is not None:
             msg = messages['Messages'][0]
             receipt_handle = msg['ReceiptHandle']
             msg_json = json.loads(msg['Body'])
-            if msg_json.get('Records'):
-                key = msg_json['Records'][0]['s3']['object']['key']
+        return (msg_json, receipt_handle)
+
+    def _publish_to_queue(queue_url:str, msg_body:str) -> None:
+        client = boto3.client('sqs')
+        client.send_message(
+            QueueUrl = queue_url,
+            MessageBody = msg_body,
+        )
+
+    def _delete_message(queue_url:str, receipt_handle:str) -> None:
+        client = boto3.client('sqs')
+        client.delete_message(
+            QueueUrl = queue_url,
+            ReceiptHandle = receipt_handle,
+        )
+    
+    # wait times queue
+
+    def poll_wait_times_queue() -> Tuple[str, str]:
+        msg_json, receipt_handle = SQS._poll_queue(SQS.WAIT_TIMES_QUEUE_URL)
+        # parse s3 upload event
+        key = None
+        if msg_json is not None and msg_json.get('Records'):
+            key = msg_json['Records'][0]['s3']['object']['key']
         return (key, receipt_handle)
 
     def delete_wait_times_message(receipt_handle:str) -> None:
-        client = boto3.client('sqs')
-        client.delete_message(
-            QueueUrl = SQS.QUEUE_URL,
-            ReceiptHandle = receipt_handle,
-        )
+        SQS._delete_message(SQS.WAIT_TIMES_QUEUE_URL, receipt_handle)        
+
 
 
 class DynamoDB:

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from threading import Thread
@@ -9,41 +10,79 @@ from utils.sms import send_alert_sms
 import env
 
 
+logger = logging.getLogger(env.ENV_NAME)
+
+
+# reusable function for starting/joining threads
+def run_threads(threads:list) -> None:
+    logger.debug(f"Starting {len(threads)} threads")
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    logger.debug("Threads joined successfully")
+
+
 # cronjob task for pulling new parks data
 def fetch_parks_json():
+    logger.info('Fetching latest parks.json file...')
+    start = time.time()
     # get latest parks.json
     filepath = 'parks.json'
     response = requests.get(f"https://queue-times.com/en-US/{filepath}")
+    logger.debug('File fetched successfully')
     with open(filepath, 'w') as f:
         json.dump(response.json(), f)
     S3.put_object(filepath)
+    logger.debug('File uploaded to S3 successfuly')
     # parse parks.json
     with open(filepath, 'r') as f:
         j = json.load(f)
         for company in j:
             parks = company['parks']
             for park in parks:
-                id, name = park['id'], park['name']
+                id, name, country = park['id'], park['name'], park['country']
+                if country != 'United States':
+                    continue
                 r = DynamoDB.ParkRecord(park_id=id, park_name=name)
                 r.write_to_dynamo()
+                logger.debug(f"Record created for {name} ({id})")
     # delete local json file
     os.remove(filepath)
+    logger.info(f"Fetched parks.json and updated database in {time.time()-start:.1f} seconds")
 
 
 # cronjob task for pulling wait times data
 def fetch_wait_times_json():
+    logger.info('Fetching latest wait times json files...')
+    start = time.time()
     all_parks = DynamoDB.list_parks()
+    threads = []
     for park in all_parks:
-        response = requests.get(f"https://queue-times.com/en-US/parks/{park.park_id}/queue_times.json")
-        filepath = f"{park.park_id}.json"
-        with open(filepath, 'w') as f:
-            json.dump(response.json(), f)
-        S3.put_object(filepath, key=f"wait-times/{filepath}")
-        os.remove(filepath)
+        threads.append(
+            Thread(
+                target=_fetch_wait_times_json_thread_target,
+                kwargs={'park_id':park.park_id},
+            )
+        )
+        if len(threads) == env.THREAD_COUNT:
+            run_threads(threads)
+            threads = []
+    logger.info(f"Fetched wait times and uploaded to S3 in {time.time()-start:.1f} seconds")
+# actual worker, defined for threading
+def _fetch_wait_times_json_thread_target(park_id:int):
+    response = requests.get(f"https://queue-times.com/en-US/parks/{park_id}/queue_times.json")
+    filepath = f"{park_id}.json"
+    with open(filepath, 'w') as f:
+        json.dump(response.json(), f)
+    S3.put_object(filepath, key=f"wait-times/{filepath}")
+    os.remove(filepath)
 
 
 # cronjob task for updating rides table
 def update_rides_table():
+    logger.info("Polling SQS and updating rides table...")
+    start = time.time()
     # use multiple threads
     threads = []
     for thread_num in range(1, env.THREAD_COUNT+1):
@@ -53,10 +92,8 @@ def update_rides_table():
                 kwargs={'thread_num':thread_num},
             )
         )
-    for th in threads:
-        th.start()
-    for th in threads:
-        th.join()
+    run_threads(threads)
+    logger.info(f"Updated ride wait times on DynamoDB in {time.time()-start:.1f} seconds")
 # actual worker, defined for threading
 def _update_rides_table_thread_task(thread_num:int):
     # poll sqs queue for new s3 uploads
@@ -88,38 +125,40 @@ def _update_rides_table_thread_task(thread_num:int):
 
 # cronjob task for fulfilling / expiring alerts and notifying users
 def close_out_alerts():
-    # get all active park_id's from alerts table
+    logger.info("Sending alert notifications...")
+    start = time.time()
+    # get all parks
     parks = DynamoDB.list_parks()
-    # split threads by park
     threads = []
-    for i in range(len(parks)):
-        park = parks[i]
+    for p in parks:
         threads.append(
             Thread(
                 target=_close_out_alerts_thread_task,
-                kwargs={'p':park},
+                kwargs={'park_id':p.park_id}
             )
         )
         if len(threads) == env.THREAD_COUNT:
-            for th in threads:
-                th.start()
-            for th in threads:
-                th.join()
+            run_threads(threads)
             threads = []
+    logger.info(f"Alert notifications complete in {time.time()-start:.1f} seconds")
 # actual worker, defined for threading
-def _close_out_alerts_thread_task(p:DynamoDB.ParkRecord):
-    # get all alerts for this park
-    alerts = DynamoDB.list_alerts_by_park(p.park_id)
-    if len(alerts) > 0:
-        # sort by ride to reduce db queries
-        alerts.sort(key = lambda a:a.ride_id)
-        r = DynamoDB.RideRecord(**DynamoDB.get_item(DynamoDB.RIDES_TABLE, lookup={'ride_id':alerts[0].ride_id}))
-        for a in alerts:
-            if r.ride_id != a.ride_id:
-                r = DynamoDB.RideRecord(**DynamoDB.get_item(DynamoDB.RIDES_TABLE, lookup={'ride_id':a.ride_id}))
-            # check ride wait time
-            expired = a.end_time <= time.time()
-            if r.wait_time <= a.wait_time or expired:
-                # send text message for fulfilled/expired and delete alert
-                send_alert_sms(a.phone_number, r.ride_name, a.wait_time if expired else r.wait_time, expired)
-                a.delete_from_dynamo()
+def _close_out_alerts_thread_task(park_id:int):
+    rides = DynamoDB.list_rides_by_park(park_id)
+    rides.sort(key=lambda r:r.ride_id)
+    alerts = DynamoDB.list_alerts_by_park(park_id)
+    alerts.sort(key=lambda a:a.ride_id)
+    # two pointer logic
+    r, a = 0, 0
+    while r < len(rides):
+        while a < len(alerts):
+            if alerts[a].ride_id < rides[r].ride_id:
+                a += 1
+            elif alerts[a].ride_id > rides[r].ride_id:
+                r += 1
+            else:
+                # check ride wait time
+                expired = alerts[a].end_time <= time.time()
+                if rides[r].wait_time <= alerts[a].wait_time or expired:
+                    # send text message for fulfilled/expired and delete alert
+                    send_alert_sms(alerts[a].phone_number, rides[r].ride_name, alerts[a].wait_time if expired else rides[r].wait_time, expired)
+                    alerts[a].delete_from_dynamo()
