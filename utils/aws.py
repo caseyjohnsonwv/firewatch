@@ -82,6 +82,16 @@ class DynamoDB:
         items = response['Items'] 
         return [DynamoDB.ParkRecord(**djson.loads(item, as_dict=True)) for item in items]
 
+    def list_rides_by_park(park_id:int) -> list:
+        dynamo = boto3.resource('dynamodb')
+        table = dynamo.Table(DynamoDB.RIDES_TABLE)
+        response = table.query(
+            IndexName="rides_by_park",
+            KeyConditionExpression=Key('park_id').eq(park_id),
+        )
+        items = response['Items']
+        return [DynamoDB.RideRecord(**djson.loads(item, as_dict=True)) for item in items]
+
     def list_alerts_by_park(park_id:int) -> list:
         dynamo = boto3.resource('dynamodb')
         table = dynamo.Table(DynamoDB.ALERTS_TABLE)
