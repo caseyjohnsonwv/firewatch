@@ -1,6 +1,6 @@
 FROM python:3.10.4-slim
 
-ENV VIRTUAL_ENV "venv/"
+ENV VIRTUAL_ENV "/opt/venv"
 RUN python3 -m venv ${VIRTUAL_ENV}
 ENV PATH "${VIRTUAL_ENV}/bin:$PATH"
 

@@ -35,6 +35,12 @@ class S3:
         logger.debug("Download complete")
         return key
 
+    def delete_object(key:str) -> None:
+        logger.debug(f"Deleting {key} from S3")
+        client = boto3.client('s3')
+        client.delete_object(Bucket=S3.BUCKET, Key=key)
+        logger.debug("Deletion complete")
+
 
 class SQS:
     client = boto3.client('sqs')

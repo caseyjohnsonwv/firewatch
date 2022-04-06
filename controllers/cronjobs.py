@@ -88,9 +88,10 @@ def _update_rides_table_thread_target(thread_num:int):
                     r = DynamoDB.RideRecord(ride['id'], park_id, ride['name'], park.park_name, ride['wait_time'], ride['is_open'])
                     r.write_to_dynamo()
                     thread_logger.debug(f"Updated {r}")
-        # delete local file and sqs message
+        # delete local file, sqs message, and S3 file
         os.remove(filepath)
         SQS.delete_wait_times_message(receipt_handle)
+        S3.delete_object(key)
         # grab next message
         key, receipt_handle = SQS.poll_wait_times_queue()
     if receipt_handle is not None:

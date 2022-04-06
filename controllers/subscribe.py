@@ -1,8 +1,8 @@
 import time
 import uuid
 from fastapi import APIRouter
-from twilio.twiml.messaging_response import MessagingResponse
 from utils.aws import DynamoDB
+from utils.sms import reply_to_sms
 import utils.nlp as nlp
 from pydantic import BaseModel
 
@@ -56,12 +56,9 @@ def sms_reply(req:TwilioMessageRequest):
         ride.ride_id,
         wait_time,
         start_time,
-        end_time
+        end_time,
     )
     alert.write_to_dynamo()
 
-    reply = f"Alert created! I'll tell you when the line for {ride.ride_name} is under {wait_time} minutes."
-    response = MessagingResponse()
-    response.message(reply)
-
-    return str(response)
+    reply = f"Alert created! I'll watch https://queue-times.com/ for a wait under {wait_time} minutes on {ride.ride_name}."
+    return reply_to_sms([reply])

@@ -1,6 +1,14 @@
 import phonenumbers as pn
 from twilio.rest import Client
+from twilio.twiml.messaging_response import MessagingResponse
 import env
+
+
+def reply_to_sms(messages:list) -> str:
+    response = MessagingResponse()
+    for msg in messages:
+        response.message(msg)
+    return str(response)
 
 
 def send_alert_sms(recipient:str, ride_name:str, wait_time:int, expired:bool=False) -> None:
