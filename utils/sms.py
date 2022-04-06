@@ -1,14 +1,6 @@
 import phonenumbers as pn
 from twilio.rest import Client
-from twilio.twiml.messaging_response import MessagingResponse
-from utils.aws import DynamoDB
 import env
-
-
-def response(msg:str) -> str:
-    resp = MessagingResponse()
-    resp.message(msg)
-    return str(resp)
 
 
 def send_alert_sms(recipient:str, ride_name:str, wait_time:int, expired:bool=False) -> None:

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import datetime
 from typing import Tuple
@@ -6,6 +7,9 @@ import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from dynamodb_json import json_util as djson
 import env
+
+
+logger = logging.getLogger(env.ENV_NAME)
 
 
 ### AWS WRAPPERS ###
@@ -17,14 +21,18 @@ class S3:
     def put_object(filepath:str, key:str=None) -> None:
         if key is None:
             key = os.path.basename(filepath)
+        logger.debug(f"Uploading {filepath} to S3 as {key}")
         client = boto3.client('s3')
         client.upload_file(filepath, S3.BUCKET, key)
+        logger.debug("Upload complete")
 
     def get_object(key:str, filepath:str=None) -> str:
         if filepath is None:
             filepath = key
+        logger.debug(f"Downloading {key} from S3 to {filepath}")
         client = boto3.client('s3')
         client.download_file(S3.BUCKET, key, filepath)
+        logger.debug("Download complete")
         return key
 
 
@@ -37,6 +45,7 @@ class SQS:
 
     def _poll_queue(queue_url:str) -> dict:
         # get s3 object key from upload event
+        logger.debug("Polling SQS queue")
         client = boto3.client('sqs')
         messages = client.receive_message(
             QueueUrl = queue_url,
@@ -45,6 +54,7 @@ class SQS:
         )
         msg_json, receipt_handle = None, None
         if messages.get('Messages') is not None:
+            logger.debug("1 message received")
             msg = messages['Messages'][0]
             receipt_handle = msg['ReceiptHandle']
             msg_json = json.loads(msg['Body'])
@@ -52,20 +62,22 @@ class SQS:
 
     def _publish_to_queue(queue_url:str, msg_body:str) -> None:
         client = boto3.client('sqs')
+        logger.debug("Publishing to SQS queue")
         client.send_message(
             QueueUrl = queue_url,
             MessageBody = msg_body,
         )
+        logger.debug("Publish complete")
 
     def _delete_message(queue_url:str, receipt_handle:str) -> None:
         client = boto3.client('sqs')
+        logger.debug("Deleting from SQS queue")
         client.delete_message(
             QueueUrl = queue_url,
             ReceiptHandle = receipt_handle,
         )
+        logger.debug("Deletion complete")
     
-    # wait times queue
-
     def poll_wait_times_queue() -> Tuple[str, str]:
         msg_json, receipt_handle = SQS._poll_queue(SQS.WAIT_TIMES_QUEUE_URL)
         # parse s3 upload event
@@ -85,17 +97,20 @@ class DynamoDB:
     ALERTS_TABLE = f"qt-alerts-{env.ENV_NAME}"
 
     def get_item(tablename:str, lookup:dict) -> dict:
+        logger.debug(f"Querying {tablename} with key = {lookup}")
         dynamo = boto3.resource('dynamodb')
         table = dynamo.Table(tablename)
         response = table.get_item(Key=lookup)
         return djson.loads(response['Item'], as_dict=True)
 
     def put_item(tablename:str, item:dict) -> None:
+        logger.debug(f"Writing {item} to {tablename}")
         dynamo = boto3.resource('dynamodb')
         table = dynamo.Table(tablename)
         table.put_item(Item=item)
 
     def list_parks() -> list:
+        logger.debug(f"Scanning {DynamoDB.PARKS_TABLE} table")
         dynamo = boto3.resource('dynamodb')
         table = dynamo.Table(DynamoDB.PARKS_TABLE)
         response = table.scan()
@@ -103,6 +118,7 @@ class DynamoDB:
         return [DynamoDB.ParkRecord(**djson.loads(item, as_dict=True)) for item in items]
 
     def list_rides_by_park(park_id:int) -> list:
+        logger.debug(f"Querying {DynamoDB.RIDES_TABLE} table for park_id = {park_id}")
         dynamo = boto3.resource('dynamodb')
         table = dynamo.Table(DynamoDB.RIDES_TABLE)
         response = table.query(
@@ -113,6 +129,7 @@ class DynamoDB:
         return [DynamoDB.RideRecord(**djson.loads(item, as_dict=True)) for item in items]
 
     def list_alerts_by_park(park_id:int) -> list:
+        logger.debug(f"Querying {DynamoDB.ALERTS_TABLE} table for park_id = {park_id}")
         dynamo = boto3.resource('dynamodb')
         table = dynamo.Table(DynamoDB.ALERTS_TABLE)
         response = table.query(
@@ -123,6 +140,7 @@ class DynamoDB:
         return [DynamoDB.AlertRecord(**djson.loads(item, as_dict=True)) for item in items]
 
     def delete_alert(phone_number:str, ride_id:int) -> None:
+        logger.debug(f"Deleting alert for {ride_id} by {phone_number} from {DynamoDB.ALERTS_TABLE}")
         dynamo = boto3.resource('dynamodb')
         table = dynamo.Table(DynamoDB.ALERTS_TABLE)
         table.delete_item(
