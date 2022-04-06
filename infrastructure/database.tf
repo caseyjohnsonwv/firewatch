@@ -38,28 +38,18 @@ resource "aws_dynamodb_table" "rides_table" {
     }
 }
 
-# create dynamo table for user data
-resource "aws_dynamodb_table" "users_table" {
-    name           = "qt-users-${var.env_name}"
-    billing_mode   = "PROVISIONED"
-    write_capacity = 10
-    read_capacity  = 10
-    hash_key       = "phone_number"
-
-    attribute {
-        name = "phone_number"
-        type = "S"
-    }
-}
-
 # create dynamo table for user alert data
 resource "aws_dynamodb_table" "alerts_table" {
     name           = "qt-alerts-${var.env_name}"
     billing_mode   = "PROVISIONED"
     write_capacity = 10
     read_capacity  = 10
-    hash_key       = "phone_number"
+    hash_key       = "alert_id"
 
+    attribute {
+        name = "alert_id"
+        type = "S"
+    }
     attribute {
         name = "phone_number"
         type = "S"
@@ -74,6 +64,14 @@ resource "aws_dynamodb_table" "alerts_table" {
         write_capacity     = 10
         read_capacity      = 10
         hash_key           = "park_id"
+        projection_type    = "ALL"
+    }
+
+    global_secondary_index {
+        name               = "alerts_by_phone_number"
+        write_capacity     = 10
+        read_capacity      = 10
+        hash_key           = "phone_number"
         projection_type    = "ALL"
     }
 }

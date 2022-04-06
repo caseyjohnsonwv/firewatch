@@ -139,13 +139,23 @@ class DynamoDB:
         items = response['Items'] 
         return [DynamoDB.AlertRecord(**djson.loads(item, as_dict=True)) for item in items]
 
-    def delete_alert(phone_number:str, ride_id:int) -> None:
-        logger.debug(f"Deleting alert for {ride_id} by {phone_number} from {DynamoDB.ALERTS_TABLE}")
+    def list_alerts_by_phone_number(phone_number:str) -> list:
+        logger.debug(f"Querying {DynamoDB.ALERTS_TABLE} table for phone_number = {phone_number}")
+        dynamo = boto3.resource('dynamodb')
+        table = dynamo.Table(DynamoDB.ALERTS_TABLE)
+        response = table.query(
+            IndexName="alerts_by_phone_number",
+            KeyConditionExpression=Key('phone_number').eq(phone_number),
+        )
+        items = response['Items'] 
+        return [DynamoDB.AlertRecord(**djson.loads(item, as_dict=True)) for item in items]
+
+    def delete_alert(alert_id:str) -> None:
+        logger.debug(f"Deleting alert {alert_id} from {DynamoDB.ALERTS_TABLE}")
         dynamo = boto3.resource('dynamodb')
         table = dynamo.Table(DynamoDB.ALERTS_TABLE)
         table.delete_item(
-            Key={'phone_number':phone_number},
-            ConditionExpression=Attr('ride_id').eq(ride_id)
+            Key={'alert_id':alert_id}
         )
 
 
@@ -185,7 +195,8 @@ class DynamoDB:
 
 
     class AlertRecord:
-        def __init__(self, phone_number:str, park_id:int, ride_id:int, wait_time:int, start_time:int, end_time:int):
+        def __init__(self, alert_id:str, phone_number:str, park_id:int, ride_id:int, wait_time:int, start_time:int, end_time:int):
+            self.alert_id = alert_id
             self.phone_number = phone_number
             self.park_id = park_id
             self.ride_id = ride_id
@@ -196,7 +207,7 @@ class DynamoDB:
         def __repr__(self):
             end = datetime.datetime.fromtimestamp(self.end_time).strftime('%I:%M')
             start = datetime.datetime.fromtimestamp(self.start_time).strftime('%I:%M')
-            return f"{self.phone_number} [{self.ride_id} @ {self.park_id}] {start} - {end} ({self.wait_time}m)"
+            return f"{self.alert_id} - {self.phone_number} [{self.ride_id} @ {self.park_id}] {start} - {end} ({self.wait_time}m)"
 
         def _to_dict(self):
             # return all non-null class attributes
@@ -206,4 +217,4 @@ class DynamoDB:
             DynamoDB.put_item(DynamoDB.ALERTS_TABLE, self._to_dict())
 
         def delete_from_dynamo(self):
-            DynamoDB.delete_alert(self.phone_number, self.ride_id)
+            DynamoDB.delete_alert(self.alert_id)
