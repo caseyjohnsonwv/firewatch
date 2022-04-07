@@ -1,6 +1,6 @@
 import time
 import uuid
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from utils.aws import DynamoDB
 from utils.sms import reply_to_sms
 import utils.nlp as nlp
@@ -38,8 +38,9 @@ class TwilioMessageRequest(BaseModel):
 
 
 @router.post('/twilio')
-def sms_reply(req:dict = Body()):
+def sms_reply(req):
     print(req)
+    print(req.__dict__)
     msg = req['Body']
     phone_number = req['From']
 
