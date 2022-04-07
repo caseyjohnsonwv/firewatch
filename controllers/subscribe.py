@@ -41,7 +41,7 @@ class TwilioMessageRequest(BaseModel):
 @router.post('/twilio')
 async def sms_reply(req:Request):
     req = await req.body()
-    req = json.dumps(req)
+    req = json.loads(req)
     print(req)
     msg = req['Body']
     phone_number = req['From']
