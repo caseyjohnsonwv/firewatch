@@ -15,7 +15,7 @@ def send_alert_sms(recipient:str, ride_name:str, wait_time:int, expired:bool=Fal
     if expired:
         msg = f"Your alert for {ride_name} has expired! The line did not get shorter than {wait_time} minutes."
     else:
-        msg = f"The line for {ride_name.strip()} is currently {wait_time} minutes! This alert has been deleted."
+        msg = f"The line for {ride_name.strip()} is currently {wait_time} minutes! This alert is no longer active."
     _send_sms(recipient, msg)
 
 
