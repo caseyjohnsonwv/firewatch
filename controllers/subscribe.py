@@ -1,4 +1,3 @@
-import json
 import time
 import uuid
 from fastapi import APIRouter, Request
@@ -40,9 +39,10 @@ class TwilioMessageRequest(BaseModel):
 
 @router.post('/twilio')
 def sms_reply(req:Request):
-    req = json.loads(req.body())
-    msg = req.Body
-    phone_number = req.From
+    req = req.json()
+    print(req)
+    msg = req['Body']
+    phone_number = req['From']
 
     alert_id = str(uuid.uuid4())
     park = nlp.extract_park(msg)
