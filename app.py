@@ -18,8 +18,7 @@ logger = logging.getLogger(env.ENV_NAME)
 # set up background tasks
 scheduler = BackgroundScheduler()
 scheduler.add_job(fetch_parks_json, CronTrigger.from_crontab('0 0 * * MON'))
-scheduler.add_job(fetch_wait_times_json, CronTrigger.from_crontab('1/5 * * * *'))
-scheduler.add_job(update_rides_table, CronTrigger.from_crontab('2/5 * * * *'))
+scheduler.add_job(update_wait_times, CronTrigger.from_crontab('1/5 * * * *'))
 scheduler.add_job(close_out_alerts, CronTrigger.from_crontab('3/5 * * * *'))
 
 
@@ -30,8 +29,7 @@ def startup():
     if len(parks) == 0:
         # first time startup tasks
         fetch_parks_json()
-        fetch_wait_times_json()
-        update_rides_table()
+        update_wait_times()
     # start background tasks
     scheduler.start()
 

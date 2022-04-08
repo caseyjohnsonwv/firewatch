@@ -4,6 +4,7 @@ load_dotenv('local.env')
 from os import getenv
 ENV_NAME = getenv('ENV_NAME')
 LOG_LEVEL = getenv('LOG_LEVEL').upper()
+MAX_THREADS = int(getenv('MAX_THREADS'))
 API_HOST = getenv('API_HOST')
 API_PORT = getenv('API_PORT')
 AWS_ACCESS_KEY_ID = getenv('AWS_ACCESS_KEY_ID')

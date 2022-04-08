@@ -1,11 +1,8 @@
-import json
 import logging
-import os
-import re
 from threading import Thread
 import time
 import requests
-from utils.aws import S3, SQS, DynamoDB
+from utils.aws import DynamoDB
 from utils.sms import send_alert_sms
 import env
 
@@ -35,67 +32,34 @@ def fetch_parks_json():
     logger.info(f"Fetched parks.json and updated database in {time.time()-start:.1f} seconds")
 
 
-# cronjob task for pulling wait times data
-def fetch_wait_times_json():
+# combined job for fetching wait times + updating in dynamo
+def update_wait_times():
     logger.info('Fetching latest wait times json files...')
     start = time.time()
     all_parks = DynamoDB.list_parks()
-    for park in all_parks:
-        logger.debug(f"Fetching {park}")
-        response = requests.get(f"https://queue-times.com/en-US/parks/{park.park_id}/queue_times.json")
-        filepath = f"{park.park_id}.json"
-        with open(filepath, 'w') as f:
-            json.dump(response.json(), f)
-        S3.put_object(filepath, key=f"wait-times/{filepath}")
-        os.remove(filepath)
-    logger.info(f"Fetched wait times and uploaded to S3 in {time.time()-start:.1f} seconds")
-
-
-# cronjob task for updating rides table
-def update_rides_table():
-    logger.info("Polling SQS and updating rides table...")
-    start = time.time()
     threads = []
-    for i in range(8):
+    for i,park in enumerate(all_parks):
+        logger.debug("Processing {park}")
         threads.append(Thread(
-            target=_update_rides_table_thread_target,
-            kwargs = {'thread_num':i+1}
+            target=_update_wait_times_thread_target,
+            kwargs = {'park':park}
         ))
-    for th in threads:
-        th.start()
-    for th in threads:
-        th.join()
-    logger.info(f"Updated ride wait times on DynamoDB in {time.time()-start:.1f} seconds")
-# thread target for faster execution
-def _update_rides_table_thread_target(thread_num:int):
-    thread_logger = logging.getLogger(env.ENV_NAME)
-    # poll sqs queue for new s3 uploads
-    key, receipt_handle = SQS.poll_wait_times_queue()
-    while key is not None:
-        # download json from s3
-        filepath = f"wait-times-{thread_num}.json"
-        S3.get_object(key, filepath)
-        park_id = int(re.search('\d+', key).group(0))
-        # query for park name
-        park = DynamoDB.ParkRecord(**DynamoDB.get_item(DynamoDB.PARKS_TABLE, lookup={'park_id':park_id}))
-        thread_logger.debug(f"Parsing wait times JSON for {park}")
-        # parse json for riderecords
-        with open(filepath, 'r') as f:
-            j = json.load(f)
-            for land in j['lands']:
-                for ride in land['rides']:
-                    # put riderecords in rides table
-                    r = DynamoDB.RideRecord(ride['id'], park_id, ride['name'], park.park_name, ride['wait_time'], ride['is_open'])
-                    r.write_to_dynamo()
-                    thread_logger.debug(f"Updated {r}")
-        # delete local file, sqs message, and S3 file
-        os.remove(filepath)
-        SQS.delete_wait_times_message(receipt_handle)
-        S3.delete_object(key)
-        # grab next message
-        key, receipt_handle = SQS.poll_wait_times_queue()
-    if receipt_handle is not None:
-        SQS.delete_wait_times_message(receipt_handle)
+        if len(threads) == env.MAX_THREADS or i == len(all_parks) - 1:
+            for th in threads:
+                th.start()
+            for th in threads:
+                th.join()
+            threads = []
+    logger.info(f"Fetched wait times and updated DynamoDB in {time.time()-start:.1f} seconds")
+# actual worker, defined for threading
+def _update_wait_times_thread_target(park:DynamoDB.ParkRecord):
+    response = requests.get(f"https://queue-times.com/en-US/parks/{park.park_id}/queue_times.json")
+    j = response.json()
+    for land in j['lands']:
+        for ride in land['rides']:
+            # put riderecords in rides table
+            r = DynamoDB.RideRecord(ride['id'], park.park_id, ride['name'], park.park_name, ride['wait_time'], ride['is_open'])
+            r.write_to_dynamo()
 
 
 # cronjob task for fulfilling / expiring alerts and notifying users

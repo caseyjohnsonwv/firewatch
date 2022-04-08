@@ -32,6 +32,6 @@ async def sms_reply(From: str = Form(...), Body: str = Form(...)):
     )
     alert.write_to_dynamo()
 
-    reply = f"Alert created! I'll watch for a wait under {wait_time} minutes on {ride.ride_name}. Powered by https://queue-times.com/"
+    reply = f"Alert created! Watching {ride.ride_name.strip()} at {park.park_name.strip()} for a wait under {wait_time} minutes. Powered by https://queue-times.com/"
     response = reply_to_sms([reply])
     return Response(content=str(response), media_type="application/xml")
