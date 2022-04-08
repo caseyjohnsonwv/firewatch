@@ -1,10 +1,7 @@
-import json
 import logging
-import os
 import datetime
-from typing import Tuple
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 from dynamodb_json import json_util as djson
 import env
 
@@ -13,88 +10,6 @@ logger = logging.getLogger(env.ENV_NAME)
 
 
 ### AWS WRAPPERS ###
-
-
-class S3:
-    BUCKET = f"qt-data-{env.ENV_NAME}"
-
-    def put_object(filepath:str, key:str=None) -> None:
-        if key is None:
-            key = os.path.basename(filepath)
-        logger.debug(f"Uploading {filepath} to S3 as {key}")
-        client = boto3.client('s3')
-        client.upload_file(filepath, S3.BUCKET, key)
-        logger.debug("Upload complete")
-
-    def get_object(key:str, filepath:str=None) -> str:
-        if filepath is None:
-            filepath = key
-        logger.debug(f"Downloading {key} from S3 to {filepath}")
-        client = boto3.client('s3')
-        client.download_file(S3.BUCKET, key, filepath)
-        logger.debug("Download complete")
-        return key
-
-    def delete_object(key:str) -> None:
-        logger.debug(f"Deleting {key} from S3")
-        client = boto3.client('s3')
-        client.delete_object(Bucket=S3.BUCKET, Key=key)
-        logger.debug("Deletion complete")
-
-
-class SQS:
-    client = boto3.client('sqs')
-    WAIT_TIMES_QUEUE_URL = client.get_queue_url(
-        QueueName=f"qt-data-wait-times-update-queue-{env.ENV_NAME}"
-    )['QueueUrl']
-    del client
-
-    def _poll_queue(queue_url:str) -> dict:
-        # get s3 object key from upload event
-        logger.debug("Polling SQS queue")
-        client = boto3.client('sqs')
-        messages = client.receive_message(
-            QueueUrl = queue_url,
-            MaxNumberOfMessages = 1,
-            WaitTimeSeconds = 20,
-        )
-        msg_json, receipt_handle = None, None
-        if messages.get('Messages') is not None:
-            logger.debug("1 message received")
-            msg = messages['Messages'][0]
-            receipt_handle = msg['ReceiptHandle']
-            msg_json = json.loads(msg['Body'])
-        return (msg_json, receipt_handle)
-
-    def _publish_to_queue(queue_url:str, msg_body:str) -> None:
-        client = boto3.client('sqs')
-        logger.debug("Publishing to SQS queue")
-        client.send_message(
-            QueueUrl = queue_url,
-            MessageBody = msg_body,
-        )
-        logger.debug("Publish complete")
-
-    def _delete_message(queue_url:str, receipt_handle:str) -> None:
-        client = boto3.client('sqs')
-        logger.debug("Deleting from SQS queue")
-        client.delete_message(
-            QueueUrl = queue_url,
-            ReceiptHandle = receipt_handle,
-        )
-        logger.debug("Deletion complete")
-    
-    def poll_wait_times_queue() -> Tuple[str, str]:
-        msg_json, receipt_handle = SQS._poll_queue(SQS.WAIT_TIMES_QUEUE_URL)
-        # parse s3 upload event
-        key = None
-        if msg_json is not None and msg_json.get('Records'):
-            key = msg_json['Records'][0]['s3']['object']['key']
-        return (key, receipt_handle)
-
-    def delete_wait_times_message(receipt_handle:str) -> None:
-        SQS._delete_message(SQS.WAIT_TIMES_QUEUE_URL, receipt_handle)        
-
 
 
 class DynamoDB:
