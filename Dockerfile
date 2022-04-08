@@ -10,6 +10,7 @@ COPY ./requirements.txt ./
 RUN pip install --no-cache-dir -r ./requirements.txt
 
 COPY app.py env.py ./
+COPY .env ./local.env
 COPY controllers/ controllers/
 COPY utils utils/
 
