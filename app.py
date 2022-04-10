@@ -34,6 +34,11 @@ def startup():
     scheduler.start()
 
 
+@app.get('/', status_code=200)
+def healthcheck():
+    pass
+
+
 if __name__ == '__main__':
     log_format = "%(asctime)s - %(levelname)s - %(message)s"
     log_config = uvicorn.config.LOGGING_CONFIG

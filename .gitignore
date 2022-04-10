@@ -138,10 +138,6 @@ dmypy.json
 *.tfvars
 *terraform*
 
-# keys + ssh
-*.pem
-ec2.sh
-
 # other local files
 parks.json
 *wait-times*
