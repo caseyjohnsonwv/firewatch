@@ -67,7 +67,7 @@ resource "aws_security_group" "qt_app_ecs_service_sg" {
 # ECS LOGS
 resource "aws_cloudwatch_log_group" "qt_app_logs" {
     name              = "qt-app-logs-${var.env_name}"
-    retention_in_days = 3
+    retention_in_days = 1
 }
 
 # ECS CLUSTER
@@ -119,11 +119,12 @@ resource "aws_ecs_task_definition" "qt_app_task_definition" {
                     hostPort      = 5000
                 }
             ]
-            log_configuration = {
+            logConfiguration = {
                 logDriver = "awslogs"
                 options = {
-                    "awslogs-group" : "${aws_cloudwatch_log_group.qt_app_logs.name}",
-                    "awslogs-region" : "${var.aws_region}",
+                    awslogs-group = "${aws_cloudwatch_log_group.qt_app_logs.name}",
+                    awslogs-region = "${var.aws_region}",
+                    awslogs-stream-prefix = "qt-app-logs"
                 }
             }
         }
@@ -135,6 +136,7 @@ resource "aws_ecs_service" "qt_app_service" {
     name            = "qt-app-service-${var.env_name}"
     cluster         = aws_ecs_cluster.qt_app_cluster.id
     task_definition = aws_ecs_task_definition.qt_app_task_definition.arn
+    wait_for_steady_state = true
     desired_count   = var.start_app_on_apply ? 1 : 0
 
     load_balancer {
@@ -218,7 +220,7 @@ resource "aws_lb_target_group" "qt_app_target_group" {
     protocol    = "HTTP"
     target_type = "ip"
     vpc_id      = module.vpc.vpc_id
-    
+
     health_check {
         interval = 90
         timeout = 89
