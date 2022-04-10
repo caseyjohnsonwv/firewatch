@@ -1,41 +1,57 @@
-# VPC
-resource "aws_vpc" "qt_app_vpc" {
-    cidr_block = "10.0.0.0/24"
-    tags = {
-        Name = "qt-app-vpc-${var.env_name}"
-    }
+# VPC module
+module "vpc" {
+    source  = "terraform-aws-modules/vpc/aws"
+    version = "3.11.4"
+    name    = "qt-app-vpc"
+    cidr    = "10.0.0.0/24"
+
+    azs             = ["${var.aws_region}a", "${var.aws_region}b"]
+    private_subnets = ["10.0.0.0/26", "10.0.0.64/26"]
+    public_subnets  = ["10.0.0.128/26", "10.0.0.192/26"]
+
+    enable_nat_gateway     = true
+    single_nat_gateway     = false
+    one_nat_gateway_per_az = true
+    enable_vpn_gateway     = true
+    enable_dns_hostnames   = true
+    enable_dns_support     = true
 }
 
-# GATEWAY
-resource "aws_internet_gateway" "qt_app_igw" {
-    vpc_id = aws_vpc.qt_app_vpc.id
-    tags = {
-        Name = "qt-app-igw-${var.env_name}"
-    }
-}
-
-# SUBNET 1
-resource "aws_subnet" "qt_app_vpc_subnet_1" {
-    vpc_id     = aws_vpc.qt_app_vpc.id
-    cidr_block = "10.0.0.0/25"
-    availability_zone = "us-east-2a"
-}
-
-# SUBNET 2
-resource "aws_subnet" "qt_app_vpc_subnet_2" {
-    vpc_id     = aws_vpc.qt_app_vpc.id
-    cidr_block = "10.0.0.128/25"
-    availability_zone = "us-east-2b"
-}
-
-# SECURITY GROUP
+# LOAD BALANCER SECURITY GROUP
 resource "aws_security_group" "qt_app_lb_sg" {
     name = "qt-app-lb-sg-${var.env_name}"
-    vpc_id = aws_vpc.qt_app_vpc.id
+    vpc_id = module.vpc.vpc_id
 
     ingress {
         from_port   = 5000
         to_port     = 5000
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    egress {
+        from_port   = 0
+        to_port     = 0
+        protocol    = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+}
+
+# ECS SERVICE SECURITY GROUP
+resource "aws_security_group" "qt_app_ecs_service_sg" {
+    name = "qt-app-ecs-service-sg-${var.env_name}"
+    vpc_id = module.vpc.vpc_id
+
+    ingress {
+        from_port   = 0
+        to_port     = 0
+        protocol    = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
+        from_port   = 0
+        to_port     = 65535
         protocol    = "tcp"
         cidr_blocks = ["0.0.0.0/0"]
     }
@@ -103,6 +119,13 @@ resource "aws_ecs_task_definition" "qt_app_task_definition" {
                     hostPort      = 5000
                 }
             ]
+            log_configuration = {
+                logDriver = "awslogs"
+                options = {
+                    "awslogs-group" : "${aws_cloudwatch_log_group.qt_app_logs.name}",
+                    "awslogs-region" : "${var.aws_region}",
+                }
+            }
         }
     ])
 }
@@ -122,11 +145,11 @@ resource "aws_ecs_service" "qt_app_service" {
 
     network_configuration {
         subnets = [
-            aws_subnet.qt_app_vpc_subnet_1.id,
-            aws_subnet.qt_app_vpc_subnet_2.id,
+            module.vpc.public_subnets[0],
+            module.vpc.public_subnets[1],
         ]
         security_groups = [
-            aws_security_group.qt_app_lb_sg.id,
+            aws_security_group.qt_app_ecs_service_sg.id,
         ]
         assign_public_ip = true
     }
@@ -134,7 +157,6 @@ resource "aws_ecs_service" "qt_app_service" {
     depends_on = [
         aws_lb_listener.qt_app_lb_forwarding,
         null_resource.qt_app_build_script,
-        aws_ecr_repository_policy.ecs_image_pull_access,
     ]
 }
 
@@ -164,22 +186,14 @@ resource "aws_iam_role_policy" "qt_app_role_policy" {
         Version = "2012-10-17"
         Statement = [
             {
-                Sid       = "1"
-                Effect    = "Allow"
-                Resource  = "arn:aws:dynamodb:::*"
+                Sid      = "1"
+                Effect   = "Allow"
+                Resource = "*"
                 Action = [
-                    "dynamodb:DeleteItem",
-                    "dynamodb:GetItem",
-                    "dynamodb:PutItem",
-                    "dynamodb:Query",
-                    "dynamodb:Scan"
+                    "dynamodb:*",
+                    "ecr:*",
+                    "logs:*",
                 ]
-            },
-            {
-                Sid       = "2"
-                Effect    = "Allow"
-                Resource  = "arn:aws:ecr:::*"
-                Action    = "ecr:*"
             }
         ]
     })
@@ -188,16 +202,12 @@ resource "aws_iam_role_policy" "qt_app_role_policy" {
 # LOAD BALACNER
 resource "aws_lb" "qt_app_lb" {
     name               = "qt-app-lb-${var.env_name}"
-    load_balancer_type = "application"
     security_groups    = [
         aws_security_group.qt_app_lb_sg.id
     ]
     subnets = [
-        aws_subnet.qt_app_vpc_subnet_1.id,
-        aws_subnet.qt_app_vpc_subnet_2.id,
-    ]
-    depends_on = [
-        aws_internet_gateway.qt_app_igw,
+        module.vpc.public_subnets[0],
+        module.vpc.public_subnets[1],
     ]
 }
 
@@ -207,10 +217,15 @@ resource "aws_lb_target_group" "qt_app_target_group" {
     port        = 5000
     protocol    = "HTTP"
     target_type = "ip"
-    vpc_id      = aws_vpc.qt_app_vpc.id
-    depends_on = [
-        aws_lb.qt_app_lb,
-    ]
+    vpc_id      = module.vpc.vpc_id
+    
+    health_check {
+        interval = 90
+        timeout = 89
+        path = "/"
+        protocol = "HTTP"
+        matcher = "200"
+    }
 }
 
 # ATTACH TG TO LB
@@ -240,9 +255,7 @@ resource "aws_ecr_repository_policy" "ecs_image_pull_access" {
     {
       "Sid": "1",
       "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::${var.aws_account_id}:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS"
-      },
+      "Principal": "*",
       "Action": "ecr:*"
     }
   ]
