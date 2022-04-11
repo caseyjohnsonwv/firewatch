@@ -1,4 +1,5 @@
 import logging
+import signal
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import uvicorn
@@ -39,12 +40,21 @@ def healthcheck():
     pass
 
 
+def ecs_shutdown(*args):
+    scheduler.shutdown()
+    exit(0)
+
+
 if __name__ == '__main__':
+    # override built-in logging
     log_format = "%(asctime)s - %(levelname)s - %(message)s"
     log_config = uvicorn.config.LOGGING_CONFIG
     log_config['formatters']['access']['fmt'] = log_format
     log_config['formatters']['default']['fmt'] = log_format
     log_config['loggers'][env.ENV_NAME] = {'handlers':['default'], 'level':env.LOG_LEVEL}
+    # register shutdown listener
+    signal.signal(signal.SIGTERM, ecs_shutdown)
+    # run application
     uvicorn.run(
         "app:app",
         host=env.API_HOST,

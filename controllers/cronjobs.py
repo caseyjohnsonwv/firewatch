@@ -26,7 +26,7 @@ def fetch_parks_json():
             id, name, country = park['id'], park['name'], park['country']
             if country != 'United States':
                 continue
-            r = DynamoDB.ParkRecord(park_id=id, park_name=name)
+            r = DynamoDB.ParkRecord(park_id=id, park_name=str(name).strip())
             r.write_to_dynamo()
             logger.debug(f"Record created for {name} ({id})")
     logger.info(f"Fetched parks.json and updated database in {time.time()-start:.1f} seconds")
@@ -58,14 +58,13 @@ def _update_wait_times_thread_target(park:DynamoDB.ParkRecord):
     for land in j['lands']:
         for ride in land['rides']:
             # put riderecords in rides table
-            r = DynamoDB.RideRecord(ride['id'], park.park_id, ride['name'], park.park_name, ride['wait_time'], ride['is_open'])
+            r = DynamoDB.RideRecord(ride['id'], park.park_id, str(ride['name']).strip(), park.park_name, ride['wait_time'], ride['is_open'])
             r.write_to_dynamo()
 
 
 # cronjob task for fulfilling / expiring alerts and notifying users
 def close_out_alerts():
     logger.info("Sending alert notifications...")
-    print("Sending alert notifications...")
     start = time.time()
     # get all parks
     parks = DynamoDB.list_parks()
@@ -94,4 +93,3 @@ def close_out_alerts():
                     # move to next ride
                     a += 1
     logger.info(f"Alert notifications complete in {time.time()-start:.1f} seconds")
-    print(f"Alert notifications complete in {time.time()-start:.1f} seconds")

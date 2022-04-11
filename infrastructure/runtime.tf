@@ -215,15 +215,16 @@ resource "aws_lb" "qt_app_lb" {
 
 # LOAD BALANCER TARGET GROUP
 resource "aws_lb_target_group" "qt_app_target_group" {
-    name        = "qt-app-tg-${var.env_name}"
-    port        = 5000
-    protocol    = "HTTP"
-    target_type = "ip"
-    vpc_id      = module.vpc.vpc_id
+    name                 = "qt-app-tg-${var.env_name}"
+    port                 = 5000
+    protocol             = "HTTP"
+    target_type          = "ip"
+    vpc_id               = module.vpc.vpc_id
+    deregistration_delay = 0
 
     health_check {
-        interval = 90
-        timeout = 89
+        interval = 120
+        timeout = 119
         path = "/"
         protocol = "HTTP"
         matcher = "200"

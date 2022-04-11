@@ -1,14 +1,19 @@
+from fastapi import Response
 import phonenumbers as pn
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 import env
 
 
-def reply_to_sms(messages:list) -> str:
+def reply_to_sms(messages:list, status_code:int=200) -> str:
     response = MessagingResponse()
     for msg in messages:
         response.message(msg)
-    return str(response)
+    return Response(
+        content=str(response),
+        media_type="application/xml",
+        status_code=status_code
+    )
 
 
 def send_alert_sms(recipient:str, ride_name:str, wait_time:int, expired:bool=False) -> None:
