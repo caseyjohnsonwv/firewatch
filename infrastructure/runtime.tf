@@ -17,7 +17,7 @@ resource "heroku_config" "app_config" {
     vars = {
         ENV_NAME    = var.env_name
         LOG_LEVEL   = "debug"
-        MAX_THREADS = 8
+        MAX_THREADS = 1
     }
 
     sensitive_vars = {
