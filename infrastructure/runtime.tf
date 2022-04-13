@@ -38,11 +38,7 @@ resource "heroku_app_config_association" "config_attachment" {
 resource "null_resource" "deployment_script" {
     provisioner "local-exec" {
         interpreter = ["bash", "-c"]
-        command     = <<EOF
-git add ${abspath(path.root)}/../
-git commit -m "terraform apply deployment"
-git push heroku $(git branch | grep \\* | cut -d \"*\" -f2 | sed 's/^ *//g'):main
-EOF
+        command     = "git push heroku $(git branch | grep \\* | cut -d \"*\" -f2 | sed 's/^ *//g'):main"
     }
 
     triggers = {
