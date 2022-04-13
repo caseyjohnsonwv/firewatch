@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List, Type, Union
 from sqlalchemy import create_engine, Column, Boolean, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
@@ -11,8 +12,8 @@ logger = logging.getLogger(env.ENV_NAME)
 
 ### DB SETUP ###
 
-
-engine = create_engine(env.DATABASE_URL, echo=False)
+url = re.sub('postgres', 'postgresql', env.DATABASE_URL) # workaround for heroku-managed db url
+engine = create_engine(url, echo=False)
 SessionLocal = sessionmaker(autocommit=False, bind=engine)
 Base = declarative_base()
 

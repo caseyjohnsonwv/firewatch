@@ -1,6 +1,9 @@
 resource "heroku_app" "app" {
-    name    = "queue-times-app-${var.env_name}"
-    region  = "us"
+    name   = "queue-times-app-${var.env_name}"
+    region = "us"
+    buildpacks = [
+        "heroku/python"
+    ]
 }
 
 
