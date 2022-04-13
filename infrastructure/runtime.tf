@@ -17,8 +17,6 @@ resource "heroku_config" "app_config" {
     vars = {
         ENV_NAME    = var.env_name
         LOG_LEVEL   = "debug"
-        API_HOST    = "0.0.0.0"
-        API_PORT    = 5000
         MAX_THREADS = 8
     }
 
@@ -40,7 +38,11 @@ resource "heroku_app_config_association" "config_attachment" {
 resource "null_resource" "deployment_script" {
     provisioner "local-exec" {
         interpreter = ["bash", "-c"]
-        command     = "git push heroku $(git branch | grep \\* | cut -d \"*\" -f2 | sed 's/^ *//g'):main"
+        command     = <<EOF
+git add "${abspath(path.root)}/../"
+git commit -m "${var.deployment_commit_message}"
+git push heroku $(git branch | grep \\* | cut -d \"*\" -f2 | sed 's/^ *//g'):main
+EOF
     }
 
     triggers = {
