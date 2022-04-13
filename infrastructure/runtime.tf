@@ -17,8 +17,6 @@ resource "heroku_config" "app_config" {
     vars = {
         ENV_NAME    = var.env_name
         LOG_LEVEL   = "debug"
-        API_HOST    = "0.0.0.0"
-        API_PORT    = 5000
         MAX_THREADS = 1
     }
 
