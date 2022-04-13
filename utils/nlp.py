@@ -40,7 +40,7 @@ def _extract_best_match(msg:str, match_list:list, threshold:int=0) -> Tuple[int,
             best_ratio = ratio
             if ratio == 100:
                 break
-    if ratio > threshold:
+    if best_ratio > threshold:
         return match_list.index(closest_match), closest_match
 
 

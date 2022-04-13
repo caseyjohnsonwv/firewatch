@@ -51,3 +51,8 @@ resource "null_resource" "deployment_script" {
         heroku_addon.database,
     ]
 }
+
+
+output "twilio_webhook_target_url" {
+    value = "https://${heroku_app.app.name}.herokuapp.com/alerts/twilio"
+}
