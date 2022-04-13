@@ -45,5 +45,6 @@ if __name__ == '__main__':
     # run application
     uvicorn.run(
         'app:app',
+        port=env.PORT,
         log_config=log_config,
     )
