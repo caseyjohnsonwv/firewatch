@@ -2,21 +2,17 @@ variable "env_name" {
     type = string
 }
 
-variable "aws_account_id" {
+variable "twilio_account_sid" {
     type = string
+    sensitive = true
 }
 
-variable "aws_profile" {
+variable "twilio_auth_token" {
     type = string
-    default = "default"
+    sensitive = true
 }
 
-variable "aws_region" {
+variable "twilio_phone_number" {
     type = string
-    default = "us-east-2"
-}
-
-variable "start_app_on_apply" {
-    type = bool
-    default = false
+    sensitive = true
 }
