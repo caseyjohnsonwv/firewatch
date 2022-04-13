@@ -39,7 +39,7 @@ resource "null_resource" "deployment_script" {
     provisioner "local-exec" {
         interpreter = ["bash", "-c"]
         command     = <<EOF
-git add "${abspath(path.root)}/../"
+git add ${abspath(path.root)}/../
 git commit -m "${var.deployment_commit_message}"
 git push heroku $(git branch | grep \\* | cut -d \"*\" -f2 | sed 's/^ *//g'):main
 EOF
