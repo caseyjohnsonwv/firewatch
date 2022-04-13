@@ -2,7 +2,7 @@ import re
 from typing import Tuple
 import spacy
 from fuzzywuzzy import process as fuzzymatching
-from utils.aws import DynamoDB
+from utils.postgres import Ride, Park, CrudUtils
 
 
 NLP = spacy.load('en_core_web_sm')
@@ -12,18 +12,18 @@ class NLPException(Exception):
     pass
 
 
-def extract_park(msg:str) -> DynamoDB.ParkRecord:
-    parks = DynamoDB.list_parks()
-    res = _extract_best_match(msg, [p.park_name for p in parks], threshold=30)
+def extract_park(msg:str) -> Park:
+    parks = CrudUtils.read_parks()
+    res = _extract_best_match(msg, [p.name for p in parks], threshold=30)
     if res is None:
         raise NLPException
     index, _ = res
     return parks[index]
 
 
-def extract_ride(msg:str, park_id:int) -> DynamoDB.RideRecord:
-    rides = DynamoDB.list_rides_by_park(park_id)
-    res = _extract_best_match(msg, [r.ride_name for r in rides], threshold=70)
+def extract_ride(msg:str, park_id:int) -> Ride:
+    rides = CrudUtils.read_rides(park_id=park_id)
+    res = _extract_best_match(msg, [r.name for r in rides], threshold=70)
     if res is None:
         raise NLPException
     index, _ = res

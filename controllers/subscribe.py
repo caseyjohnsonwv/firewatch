@@ -2,7 +2,7 @@ import logging
 import time
 import uuid
 from fastapi import APIRouter, Form, Response
-from utils.aws import DynamoDB
+from utils.postgres import Alert, CrudUtils
 from utils.sms import reply_to_sms
 import utils.nlp as nlp
 import env
@@ -36,40 +36,35 @@ async def sms_reply(From: str = Form(...), Body: str = Form(...), AccountSid: st
 
     # fail if fuzzy matching can't detect ride name
     try:
-        ride = nlp.extract_ride(msg, park.park_id)
+        ride = nlp.extract_ride(msg, park.id)
     except nlp.NLPException:
-        reply = f"Sorry, I'm not sure which ride at {park.park_name} you're asking about. Try rephrasing your message."
+        reply = f"Sorry, I'm not sure which ride at {park.name} you're asking about. Try rephrasing your message."
         return reply_to_sms([reply])
 
     # TODO: make this actually work as intended
     wait_time = nlp.extract_wait_time(msg)
-    start_time = time.time()
-    end_time = start_time + 7200 # default of 2 hours
-
-    # create the alert record
-    alert = DynamoDB.AlertRecord(
-        alert_id,
-        phone_number,
-        park.park_id,
-        ride.ride_id,
-        wait_time,
-        start_time,
-        end_time,
-    )
+    expiration = int(time.time()) + 7200 # default of 2 hours
 
     # don't create alert if ride is not open
     if not ride.is_open:
-        reply = f"Whoops, it looks like {ride.ride_name} at {park.park_name} is not open right now. Try again later."
+        reply = f"Whoops, it looks like {ride.name} at {park.name} is not open right now. Try again later."
         return reply_to_sms([reply])
 
     # don't create alert if wait is already short enough
-    elif ride.wait_time <= alert.wait_time:
-        reply = f"The wait time for {ride.ride_name} at {park.park_name} is currently {ride.wait_time} minutes."
+    elif ride.wait_time <= wait_time:
+        reply = f"The wait time for {ride.name} at {park.name} is currently {ride.wait_time} minutes."
         return reply_to_sms([reply])
 
     # otherwise write alert to database
     else:
-        alert.write_to_dynamo()
-        logger.info(f"Created alert for {ride.ride_name} @ {park.park_name} <<{alert}>>")
-        reply = f"Alert created! Watching {ride.ride_name} at {park.park_name} for a wait under {wait_time} minutes. Powered by https://queue-times.com/"
+        alert = CrudUtils.create_alert(
+            id=alert_id,
+            park_id=park.id,
+            ride_id=ride.id,
+            phone_number=phone_number,
+            wait_time=wait_time,
+            expiration=expiration,
+        )
+        logger.info(f"Created alert for {ride.name} @ {park.name} <<{alert}>>")
+        reply = f"Alert created! Watching {ride.name} at {park.name} for a wait under {wait_time} minutes. Powered by https://queue-times.com/"
         return reply_to_sms([reply], status_code=201)

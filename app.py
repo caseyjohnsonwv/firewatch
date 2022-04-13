@@ -1,5 +1,4 @@
 import logging
-import signal
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import uvicorn
@@ -8,7 +7,6 @@ from fastapi import FastAPI
 from controllers.subscribe import router as subscribe_router
 from controllers.cronjobs import *
 import env
-from utils.aws import DynamoDB
 
 
 app = FastAPI()
@@ -26,23 +24,14 @@ scheduler.add_job(close_out_alerts, CronTrigger.from_crontab('3/5 * * * *'))
 # define startup tasks
 @app.on_event('startup')
 def startup():
-    parks = DynamoDB.list_parks()
-    if len(parks) == 0:
-        # first time startup tasks
-        fetch_parks_json()
-        update_wait_times()
-    # start background tasks
+    fetch_parks_json()
+    update_wait_times()
     scheduler.start()
 
 
 @app.get('/', status_code=200)
 def healthcheck():
     pass
-
-
-def ecs_shutdown(*args):
-    scheduler.shutdown()
-    exit(0)
 
 
 if __name__ == '__main__':
@@ -52,8 +41,6 @@ if __name__ == '__main__':
     log_config['formatters']['access']['fmt'] = log_format
     log_config['formatters']['default']['fmt'] = log_format
     log_config['loggers'][env.ENV_NAME] = {'handlers':['default'], 'level':env.LOG_LEVEL}
-    # register shutdown listener
-    signal.signal(signal.SIGTERM, ecs_shutdown)
     # run application
     uvicorn.run(
         "app:app",
