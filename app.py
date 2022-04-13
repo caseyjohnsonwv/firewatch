@@ -1,3 +1,4 @@
+import datetime
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -16,16 +17,16 @@ logger = logging.getLogger(env.ENV_NAME)
 
 # set up background tasks
 scheduler = BackgroundScheduler()
-scheduler.add_job(fetch_parks_json, CronTrigger.from_crontab('0 0 * * MON'))
-scheduler.add_job(update_wait_times, CronTrigger.from_crontab('1/5 * * * *'))
-scheduler.add_job(close_out_alerts, CronTrigger.from_crontab('3/5 * * * *'))
+fetch_job = scheduler.add_job(fetch_parks_json, CronTrigger.from_crontab('0 0 * * MON'))
+update_job = scheduler.add_job(update_wait_times, CronTrigger.from_crontab('1/5 * * * *'))
+close_job = scheduler.add_job(close_out_alerts, CronTrigger.from_crontab('3/5 * * * *'))
 
 
 # define startup tasks
 @app.on_event('startup')
 def startup():
-    fetch_parks_json()
-    update_wait_times()
+    scheduler.modify_job(fetch_job.id, next_run_time=datetime.datetime.now())
+    scheduler.modify_job(update_job.id, next_run_time=datetime.datetime.now() + datetime.timedelta(seconds=10))
     scheduler.start()
 
 
