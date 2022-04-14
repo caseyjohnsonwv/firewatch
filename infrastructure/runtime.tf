@@ -43,7 +43,7 @@ resource "heroku_app_config_association" "config_attachment" {
 resource "null_resource" "deployment_script" {
     provisioner "local-exec" {
         interpreter = ["bash", "-c"]
-        command     = "git push heroku $(git branch | grep \\* | cut -d \"*\" -f2 | sed 's/^ *//g'):main"
+        command     = "git push heroku $(git branch | grep \\* | cut -d \"*\" -f2 | sed 's/^ *//g'):main --force"
     }
 
     triggers = {

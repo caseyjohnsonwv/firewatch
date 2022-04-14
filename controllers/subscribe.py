@@ -32,8 +32,8 @@ async def live_sms_reply(
         'From' : From,
         'To' : To,
         'Body' : Body,
-        'NumMedia' : NumMedia,
-        'ReferralNumMedia' : ReferralNumMedia,
+        'NumMedia' : str(NumMedia),
+        'ReferralNumMedia' : str(ReferralNumMedia),
     }
     if not validator.validate(url, params, X_Twilio_Signature):
         logger.warning(f"Invalid requestor: {AccountSid}")
