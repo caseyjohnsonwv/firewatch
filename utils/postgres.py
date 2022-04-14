@@ -133,11 +133,11 @@ class CrudUtils:
             db.commit()
         return objs
 
-    def delete_parks(**kwargs) -> Park:
-        return CrudUtils._delete_objects(Park, filters=kwargs)[0]
+    def delete_parks(**kwargs) -> List[Union[Park, Ride, Alert]]:
+        return CrudUtils._delete_objects(Park, filters=kwargs)
 
-    def delete_rides(**kwargs) -> Ride:
-        return CrudUtils._delete_objects(Ride, filters=kwargs)[0]
+    def delete_rides(**kwargs) -> List[Union[Park, Ride, Alert]]:
+        return CrudUtils._delete_objects(Ride, filters=kwargs)
 
-    def delete_alerts(**kwargs) -> Alert:
-        return CrudUtils._delete_objects(Alert, filters=kwargs)[0]
+    def delete_alerts(**kwargs) -> List[Union[Park, Ride, Alert]]:
+        return CrudUtils._delete_objects(Alert, filters=kwargs)
