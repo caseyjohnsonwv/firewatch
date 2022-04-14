@@ -50,3 +50,6 @@ if __name__ == '__main__':
             port=env.PORT,
             log_config=log_config,
         )
+    else:
+        app.docs_url = None
+        app.redoc_url = None
