@@ -1,8 +1,9 @@
 import logging
+from sqlalchemy.exc import IntegrityError
 from threading import Thread
 import time
 import requests
-from utils.aws import DynamoDB
+from utils.postgres import Park, CrudUtils
 from utils.sms import send_alert_sms
 import env
 
@@ -20,26 +21,32 @@ def fetch_parks_json():
     j = response.json()
     logger.debug('File fetched successfully')
     # parse parks.json
+    existing_park_ids = set([p.id for p in CrudUtils.read_parks()])
     for company in j:
         parks = company['parks']
         for park in parks:
             id, name, country = park['id'], park['name'], park['country']
+            name=str(name).strip()
+            country=str(country).strip()
             if country != 'United States':
                 continue
-            r = DynamoDB.ParkRecord(park_id=id, park_name=str(name).strip())
-            r.write_to_dynamo()
-            logger.debug(f"Record created for {name} ({id})")
+            if id in existing_park_ids:
+                CrudUtils.update_parks(id=id, updates={'name':name})
+                logger.debug(f"Record updated for {name} ({id})")
+            else:
+                CrudUtils.create_park(id=id, name=name)
+                logger.debug(f"Record created for {name} ({id})")
     logger.info(f"Fetched parks.json and updated database in {time.time()-start:.1f} seconds")
 
 
-# combined job for fetching wait times + updating in dynamo
+# combined job for fetching wait times + updating in database
 def update_wait_times():
     logger.info('Fetching latest wait times json files...')
     start = time.time()
-    all_parks = DynamoDB.list_parks()
+    all_parks = CrudUtils.read_parks()
     threads = []
     for i,park in enumerate(all_parks):
-        logger.debug("Processing {park}")
+        logger.debug(f"Processing {park}")
         threads.append(Thread(
             target=_update_wait_times_thread_target,
             kwargs = {'park':park}
@@ -50,16 +57,22 @@ def update_wait_times():
             for th in threads:
                 th.join()
             threads = []
-    logger.info(f"Fetched wait times and updated DynamoDB in {time.time()-start:.1f} seconds")
+    logger.info(f"Fetched wait times and updated database in {time.time()-start:.1f} seconds")
 # actual worker, defined for threading
-def _update_wait_times_thread_target(park:DynamoDB.ParkRecord):
-    response = requests.get(f"https://queue-times.com/en-US/parks/{park.park_id}/queue_times.json")
+def _update_wait_times_thread_target(park:Park):
+    response = requests.get(f"https://queue-times.com/en-US/parks/{park.id}/queue_times.json")
     j = response.json()
+    all_ride_ids = set([r.id for r in CrudUtils.read_rides(park_id=park.id)])
     for land in j['lands']:
         for ride in land['rides']:
             # put riderecords in rides table
-            r = DynamoDB.RideRecord(ride['id'], park.park_id, str(ride['name']).strip(), park.park_name, ride['wait_time'], ride['is_open'])
-            r.write_to_dynamo()
+            if ride['id'] in all_ride_ids:
+                CrudUtils.update_rides(
+                    id=ride['id'],
+                    updates={'wait_time':ride['wait_time'], 'is_open':ride['is_open']}
+                )
+            else:
+                CrudUtils.create_ride(id=ride['id'], name=str(ride['name']).strip(), park_id=park.id, wait_time=ride['wait_time'], is_open=ride['is_open'])
 
 
 # cronjob task for fulfilling / expiring alerts and notifying users
@@ -67,29 +80,29 @@ def close_out_alerts():
     logger.info("Sending alert notifications...")
     start = time.time()
     # get all parks
-    parks = DynamoDB.list_parks()
+    parks = CrudUtils.read_parks()
     for p in parks:
         logger.debug(f"Fulfilling alerts for {p}")
         print(f"Fulfilling alerts for {p}")
-        rides = DynamoDB.list_rides_by_park(p.park_id)
-        rides.sort(key=lambda r:r.ride_id)
-        alerts = DynamoDB.list_alerts_by_park(p.park_id)
+        rides = CrudUtils.read_rides(park_id=p.id)
+        rides.sort(key=lambda r:r.id)
+        alerts = CrudUtils.read_alerts(park_id=p.id)
         alerts.sort(key=lambda a:a.ride_id)
         # two pointer logic
         r, a = 0, 0
         while r < len(rides) and a < len(alerts):
-            if alerts[a].ride_id != rides[r].ride_id:
+            if alerts[a].ride_id != rides[r].id:
                 r += 1
             else:
-                while a < len(alerts) and alerts[a].ride_id == rides[r].ride_id:
+                while a < len(alerts) and alerts[a].ride_id == rides[r].id:
                     # check ride wait time
-                    expired = alerts[a].end_time <= time.time()
+                    expired = alerts[a].expiration <= time.time()
                     if rides[r].wait_time <= alerts[a].wait_time or expired:
                         # send text message for fulfilled/expired and delete alert
                         logger.debug(f"Closing out alert {alerts[a]}{' <<EXPIRED>>' if expired else ''}")
                         print(f"Closing out alert {alerts[a]}{' <<EXPIRED>>' if expired else ''}")
-                        send_alert_sms(alerts[a].phone_number, rides[r].ride_name, alerts[a].wait_time if expired else rides[r].wait_time, expired)
-                        alerts[a].delete_from_dynamo()
+                        send_alert_sms(alerts[a].phone_number, rides[r].name, alerts[a].wait_time if expired else rides[r].wait_time, expired)
+                        CrudUtils.delete_alerts(alert_id=alerts[a].id)
                     # move to next ride
                     a += 1
     logger.info(f"Alert notifications complete in {time.time()-start:.1f} seconds")

@@ -141,3 +141,6 @@ dmypy.json
 # other local files
 parks.json
 *wait-times*
+
+# local db for testing
+local.db
