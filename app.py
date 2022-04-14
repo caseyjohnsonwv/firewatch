@@ -43,8 +43,10 @@ if __name__ == '__main__':
     log_config['formatters']['default']['fmt'] = log_format
     log_config['loggers'][env.ENV_NAME] = {'handlers':['default'], 'level':env.LOG_LEVEL}
     # run application
-    uvicorn.run(
-        'app:app',
-        port=env.PORT,
-        log_config=log_config,
-    )
+    if env.ENV_NAME == 'local':
+        uvicorn.run(
+            'app:app',
+            host=env.HOST,
+            port=env.PORT,
+            log_config=log_config,
+        )
