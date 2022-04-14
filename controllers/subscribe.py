@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Form, Header, Response
+from fastapi import APIRouter, Form, Header, Request, Response
 from twilio.request_validator import RequestValidator
 import utils.sms as sms
 import env
@@ -12,31 +12,13 @@ validator = RequestValidator(env.TWILIO_AUTH_TOKEN)
 
 
 @live_router.post('/twilio')
-async def live_sms_reply(
-    MessageSid:str = Form(...),
-    SmsSid:str = Form(...),
-    AccountSid:str = Form(...), 
-    From:str = Form(...),
-    To:str = Form(...),
-    Body:str = Form(...), 
-    NumMedia:int = Form(...),
-    ReferralNumMedia:int = Form(...),
-    X_Twilio_Signature:str = Header(...)
-):
+async def live_sms_reply(request: Request, From:str = Form(...), Body:str = Form(...)):
     # verify request authenticity
     url = f"https://{env.HEROKU_APP_NAME}.herokuapp.com{live_router.prefix}/twilio"
-    params = {
-        'MessageSid' : MessageSid,
-        'SmsSid' : SmsSid,
-        'AccountSid' : AccountSid,
-        'From' : From,
-        'To' : To,
-        'Body' : Body,
-        'NumMedia' : str(NumMedia),
-        'ReferralNumMedia' : str(ReferralNumMedia),
-    }
-    if not validator.validate(url, params, X_Twilio_Signature):
-        logger.warning(f"Invalid requestor: {AccountSid}")
+    logger.info(f"App URL: '{url}'")
+    params = await request.form()
+    if not validator.validate(url, params, request.headers.get('X-Twilio-Signature')):
+        logger.warning(f"Invalid requestor blocked: <<{params}>>")
         return Response(status_code=403)
 
     # process message
