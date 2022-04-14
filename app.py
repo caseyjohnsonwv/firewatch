@@ -5,13 +5,20 @@ from apscheduler.triggers.cron import CronTrigger
 import uvicorn
 import uvicorn.config
 from fastapi import FastAPI
-from controllers.subscribe import router as subscribe_router
+from controllers.subscribe import live_router, test_router
 from controllers.cronjobs import *
 import env
 
 
 app = FastAPI()
-app.include_router(subscribe_router)
+app.include_router(live_router)
+if env.ENV_NAME == 'local':
+    app.include_router(test_router)
+else:
+    app.docs_url = None
+    app.redoc_url = None
+
+
 logger = logging.getLogger(env.ENV_NAME)
 
 
@@ -50,6 +57,3 @@ if __name__ == '__main__':
             port=5000,
             log_config=log_config,
         )
-    else:
-        app.docs_url = None
-        app.redoc_url = None
