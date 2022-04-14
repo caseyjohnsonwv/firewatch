@@ -46,8 +46,8 @@ if __name__ == '__main__':
     if env.ENV_NAME == 'local':
         uvicorn.run(
             'app:app',
-            host=env.HOST,
-            port=env.PORT,
+            host='localhost',
+            port=5000,
             log_config=log_config,
         )
     else:

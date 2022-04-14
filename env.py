@@ -2,8 +2,6 @@ from dotenv import load_dotenv
 load_dotenv('local.env')
 
 from os import getenv
-HOST = getenv('HOST')
-PORT = int(getenv('PORT'))
 ENV_NAME = getenv('ENV_NAME')
 LOG_LEVEL = getenv('LOG_LEVEL').upper()
 MAX_THREADS = int(getenv('MAX_THREADS'))
