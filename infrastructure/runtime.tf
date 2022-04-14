@@ -12,6 +12,11 @@ resource "heroku_addon" "database" {
     plan   = "heroku-postgresql:hobby-dev"
 }
 
+resource "heroku_app_feature" "dyno_metadata" {
+    app_id = heroku_app.app.id
+    name   = "runtime-dyno-metadata"
+}
+
 
 resource "heroku_config" "app_config" {
     vars = {
@@ -49,10 +54,11 @@ resource "null_resource" "deployment_script" {
     depends_on = [
         heroku_app_config_association.config_attachment,
         heroku_addon.database,
+        heroku_app_feature.dyno_metadata,
     ]
 }
 
 
 output "twilio_webhook_target_url" {
-    value = "https://${heroku_app.app.name}.herokuapp.com/alerts/twilio"
+    value = "https://${heroku_app.app.name}.herokuapp.com/live/twilio"
 }

@@ -1,11 +1,14 @@
+import time
+from typing import List
 from fastapi import Response
 import phonenumbers as pn
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
+from . import nlp, logic
 import env
 
 
-def reply_to_sms(messages:list, status_code:int=200) -> str:
+def create_reply_twiml(messages:List[str], status_code:int=200) -> str:
     response = MessagingResponse()
     for msg in messages:
         response.message(msg)
@@ -37,3 +40,24 @@ def _send_sms(recipient:str, msg:str) -> None:
             pn.PhoneNumberFormat.E164
         ),
     )
+
+
+def process_message(msg:str, phone_number:str) -> str:
+    # fail if fuzzy matching can't detect park name
+    try:
+        park = nlp.extract_park(msg)
+    except nlp.NLPException:
+        return "Sorry, I'm not sure what park you're visting. Try rephrasing your message."
+
+    # fail if fuzzy matching can't detect ride name
+    try:
+        ride = nlp.extract_ride(msg, park.id)
+    except nlp.NLPException:
+        return f"Sorry, I'm not sure which ride at {park.name} you're asking about. Try rephrasing your message."
+
+    # TODO: make this actually work as intended
+    wait_time = nlp.extract_wait_time(msg)
+    expiration = int(time.time()) + 7200 # default of 2 hours
+
+    reply = logic.alert_creation_flow(ride=ride, park=park, phone_number=phone_number, wait_time=wait_time, expiration=expiration)
+    return reply
