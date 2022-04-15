@@ -1,8 +1,21 @@
 resource "heroku_app" "app" {
     name   = "queue-times-app-${var.env_name}"
     region = "us"
+    
     buildpacks = [
         "heroku/python"
+    ]
+}
+
+
+resource "heroku_formation" "dyno_type" {
+    app_id   = heroku_app.app.id
+    type     = "web"
+    size     = "hobby"
+    quantity = 1
+
+    depends_on = [
+        null_resource.deployment_script,
     ]
 }
 
@@ -11,6 +24,7 @@ resource "heroku_addon" "database" {
     app_id = heroku_app.app.id
     plan   = "heroku-postgresql:hobby-dev"
 }
+
 
 resource "heroku_app_feature" "dyno_metadata" {
     app_id = heroku_app.app.id
