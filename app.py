@@ -16,7 +16,7 @@ if env.ENV_NAME == 'local':
     app.include_router(test_router)
 
 
-logger = logging.getLogger(env.ENV_NAME)
+logger = logging.getLogger('uvicorn')
 
 
 # set up background tasks
@@ -35,17 +35,10 @@ def startup():
 
 
 if __name__ == '__main__':
-    # override built-in logging
-    log_format = "%(asctime)s - %(levelname)s - %(message)s"
-    log_config = uvicorn.config.LOGGING_CONFIG
-    log_config['formatters']['access']['fmt'] = log_format
-    log_config['formatters']['default']['fmt'] = log_format
-    log_config['loggers'][env.ENV_NAME] = {'handlers':['default'], 'level':env.LOG_LEVEL}
     # run application
     if env.ENV_NAME == 'local':
         uvicorn.run(
             'app:app',
             host='localhost',
             port=5000,
-            log_config=log_config,
         )

@@ -5,7 +5,7 @@ import utils.sms as sms
 import env
 
 
-logger = logging.getLogger(env.ENV_NAME)
+logger = logging.getLogger('uvicorn')
 live_router = APIRouter(prefix='/live')
 test_router = APIRouter(prefix='/test')
 validator = RequestValidator(env.TWILIO_AUTH_TOKEN)

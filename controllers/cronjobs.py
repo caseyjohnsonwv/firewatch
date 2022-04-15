@@ -8,7 +8,7 @@ from utils.sms import send_alert_sms
 import env
 
 
-logger = logging.getLogger(env.ENV_NAME)
+logger = logging.getLogger('uvicorn')
 
 
 # cronjob task for pulling new parks data
