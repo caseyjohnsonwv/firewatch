@@ -15,6 +15,7 @@ class NLPException(Exception):
 # temporary bad solution - can we do semantic matching?
 class ActionKeywords:
     DELETE = ['delete', 'cancel', 'stop']
+    UPDATE = ['update', 'edit', 'modify', 'change']
 
 
 def extract_park(msg:str) -> Park:
@@ -46,6 +47,14 @@ def extract_wait_time(msg:str) -> int:
 def detect_deletion_message(msg:str) -> bool:
     # temporary bad solution - can we do semantic matching?
     res = _extract_best_match(msg, ActionKeywords.DELETE, threshold=90, pos_='VERB')
+    if res is None:
+        return False
+    return True
+
+
+def detect_update_message(msg:str) -> bool:
+    # temporary bad solution - can we do semantic matching?
+    res = _extract_best_match(msg, ActionKeywords.UPDATE, threshold=90, pos_='VERB')
     if res is None:
         return False
     return True

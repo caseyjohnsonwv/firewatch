@@ -61,7 +61,11 @@ def process_message(msg:str, phone_number:str) -> str:
 
     # use extracted data to do something in the database
     if nlp.detect_deletion_message(msg):
-        reply = logic.alert_deletion_flow(ride=ride, park=park, phone_number=phone_number)
+        reply = logic.alert_deletion_flow(ride=ride, phone_number=phone_number)
+
+    elif nlp.detect_update_message(msg):
+        reply = logic.alert_update_flow(ride=ride, phone_number=phone_number, wait_time=wait_time, expiration=expiration)
+
     else:
         reply = logic.alert_creation_flow(ride=ride, park=park, phone_number=phone_number, wait_time=wait_time, expiration=expiration)
     
