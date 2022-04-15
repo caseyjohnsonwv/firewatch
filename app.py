@@ -15,8 +15,7 @@ app.include_router(live_router)
 if env.ENV_NAME == 'local':
     app.include_router(test_router)
 else:
-    app.docs_url = None
-    app.redoc_url = None
+    app.openapi_url = None
 
 
 logger = logging.getLogger(env.ENV_NAME)
@@ -26,7 +25,7 @@ logger = logging.getLogger(env.ENV_NAME)
 scheduler = BackgroundScheduler()
 fetch_job = scheduler.add_job(fetch_parks_json, CronTrigger.from_crontab('0 0 * * MON'))
 update_job = scheduler.add_job(update_wait_times, CronTrigger.from_crontab('1/5 * * * *'))
-close_job = scheduler.add_job(close_out_alerts, CronTrigger.from_crontab('3/5 * * * *'))
+close_job = scheduler.add_job(close_out_alerts, CronTrigger.from_crontab('0/5 * * * *'))
 
 
 # define startup tasks
