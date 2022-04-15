@@ -102,7 +102,7 @@ def close_out_alerts():
                         logger.debug(f"Closing out alert {alerts[a]}{' <<EXPIRED>>' if expired else ''}")
                         print(f"Closing out alert {alerts[a]}{' <<EXPIRED>>' if expired else ''}")
                         send_alert_sms(alerts[a].phone_number, rides[r].name, alerts[a].wait_time if expired else rides[r].wait_time, expired)
-                        CrudUtils.delete_alerts(alert_id=alerts[a].id)
+                        CrudUtils.delete_alerts(id=alerts[a].id)
                     # move to next ride
                     a += 1
     logger.info(f"Alert notifications complete in {time.time()-start:.1f} seconds")

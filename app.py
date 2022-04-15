@@ -14,8 +14,6 @@ app = FastAPI()
 app.include_router(live_router)
 if env.ENV_NAME == 'local':
     app.include_router(test_router)
-else:
-    app.openapi_url = None
 
 
 logger = logging.getLogger(env.ENV_NAME)
@@ -34,11 +32,6 @@ def startup():
     scheduler.modify_job(fetch_job.id, next_run_time=datetime.datetime.now())
     scheduler.modify_job(update_job.id, next_run_time=datetime.datetime.now() + datetime.timedelta(seconds=10))
     scheduler.start()
-
-
-@app.get('/', status_code=200)
-def healthcheck():
-    pass
 
 
 if __name__ == '__main__':
