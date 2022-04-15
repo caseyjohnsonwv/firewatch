@@ -14,7 +14,7 @@ class NLPException(Exception):
 
 # temporary bad solution - can we do semantic matching?
 class ActionKeywords:
-    DELETE = ['delete', 'cancel']
+    DELETE = ['delete', 'cancel', 'stop']
 
 
 def extract_park(msg:str) -> Park:
