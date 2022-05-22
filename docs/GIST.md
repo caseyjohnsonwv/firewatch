@@ -8,11 +8,11 @@ Casey Johnson, Spring 2022 | [GitHub Repo](https://github.com/caseyjohnsonwv/que
 
 In this Gist, I conceive, architect, and deploy an SMS application called **Firewatch** that messages me when the lines are short at theme parks. This is a Python 3.10 application leveraging [FastAPI](https://fastapi.tiangolo.com/) and [Twilio](https://www.twilio.com/) with amusement park data sourced from [Queue-Times](https://queue-times.com/). The chosen architecture prioritizes simplicity and cost-savings over efficiency. As such, Firewatch costs approximately $10 per month to operate.
 
-I must give name attribution to the video game [Firewatch](https://www.firewatchgame.com/) - it is one of my favorites.
-
 <p align="center">
   <img src="./sample_app_screenshot.png" alt="Sample Usage for Dollywood" width="40%">
 </p>
+
+I must give name attribution to the video game [Firewatch](https://www.firewatchgame.com/) - it is one of my favorites.
 
 ---
 
