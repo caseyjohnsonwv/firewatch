@@ -1,5 +1,4 @@
 import logging
-from sqlalchemy.exc import IntegrityError
 from threading import Thread
 import time
 import requests
