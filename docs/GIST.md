@@ -47,7 +47,7 @@ This was quickly shot down due to the sheer complexity it would introduce for su
 After successfully deploying the application on AWS Fargate, I noticed the bill rising faster than I expected. Within a week, I pivoted to Heroku.
 
 <p align="center">
-  <img src="./heroku_server_arch.png" alt="Server-ed Heroku Architecture" width="80%">
+  <img src="./heroku_server_arch.png" alt="Server-ed Heroku Architecture" width="55%">
 </p>
 
 This configuration is able to run free for life. However, free-tier dynos are subject to sleeping after 30 minutes of inactivity. This means the background tasks to fetch and update ride wait times would not run unless the app was actively being used. As such, I upgraded to the `hobby` dyno type, which never sleeps for only $7/mo.
