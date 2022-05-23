@@ -1,6 +1,6 @@
 # Firewatch: an SMS Application for Theme Park Wait Times
 
-Casey Johnson, Spring 2022 | [GitHub Repo](https://github.com/caseyjohnsonwv/queue-times-app/) | [Connect with me on LinkedIn!](https://linkedin.com/in/caseyjohnsonwv)
+[Connect with me on LinkedIn!](https://linkedin.com/in/caseyjohnsonwv)
 
 ---
 
@@ -12,7 +12,7 @@ In this Gist, I conceive, architect, and deploy an SMS application called **Fire
   <img src="./sample_app_screenshot.png" alt="Sample Usage for Dollywood" width="40%">
 </p>
 
-I must give name attribution to the video game [Firewatch](https://www.firewatchgame.com/) - it is one of my favorites.
+I must give name attribution to the video game [Firewatch](https://www.firewatchgame.com/) - it's one of my favorites.
 
 ---
 
