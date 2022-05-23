@@ -1,3 +1,5 @@
+<meta property="og:image" content="./aws_serverless_arch.jpg" />
+
 # Firewatch: an SMS Application for Theme Park Wait Times
 
 [Connect with me on LinkedIn!](https://linkedin.com/in/caseyjohnsonwv)
