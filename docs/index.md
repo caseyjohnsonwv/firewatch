@@ -1,4 +1,4 @@
-# Building Firewatch: an SMS Application for Theme Park Wait Times
+# Firewatch: an SMS Application for Theme Park Wait Times
 
 Casey Johnson, Spring 2022 | [GitHub Repo](https://github.com/caseyjohnsonwv/queue-times-app/) | [Connect with me on LinkedIn!](https://linkedin.com/in/caseyjohnsonwv)
 
@@ -121,7 +121,7 @@ Firewatch runs three distinct background tasks:
 
 ## Evaluation
 
-Development and testing of the application is ongoing, but its MVP has already proven useful at Dollywood in Pigeon Forge, TN. During my first visit to the park in May of 2022, I used Firewatch while my friend used Dollywood's app. Firewatch was able to accurately report on ride closures and wait times only minutes behind what we were seeing in-person. But more importantly, Firewatch **sent me notifications before we even checked Dollywood's app**.
+Development and testing of the application is ongoing, but its MVP has already proven useful at Dollywood in Pigeon Forge, TN. During my first visit to the park in May of 2022, I used Firewatch while my friend used Dollywood's app. Firewatch was able to accurately report on ride closures and wait times only minutes behind what we were seeing in-person. But more importantly, **Firewatch sent me notifications before we even checked Dollywood's app**.
 
 Unfortunately, this application does still have one major limitation: its data. Queue-Times is a fantastic free source, but its data comes *from* amusement park apps, meaning we cannot be more accurate than the parks themselves. But, as parks' own apps improve, so too will Queue-Times, and thus Firewatch.
 
