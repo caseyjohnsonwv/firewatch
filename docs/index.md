@@ -1,4 +1,6 @@
-<meta property="og:image" content="./aws_serverless_arch.jpg" />
+<head>
+  <meta property="og:image" content="./aws_serverless_arch.jpg" />
+</head>
 
 # Firewatch: an SMS Application for Theme Park Wait Times
 
